@@ -3,6 +3,7 @@ import { getProject, getProjectCount } from "../rpc/rpc";
 import type { Project, EventLog } from "../types";
 import { eventsListener } from "../events/events";
 import { useWallet } from "../contexts/WalletContext";
+import { useAuth } from "../contexts/AuthContext";
 
 export function useContractState() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -11,7 +12,8 @@ export function useContractState() {
   const [xlmBalance, setXlmBalance] = useState("0.00");
   const [error, setError] = useState<string | null>(null);
   
-  const { address, refreshRoles } = useWallet();
+  const { address } = useWallet();
+  const { refreshRoles } = useAuth();
 
   /**
    * Load the native XLM token balance of the connected user.

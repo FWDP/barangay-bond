@@ -43,7 +43,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3, h4, .stats-value {
+h1, h2, h3, h4, .stats-value, .hero-title {
   font-family: 'Outfit', sans-serif;
   font-weight: 600;
 }
@@ -88,7 +88,7 @@ h1, h2, h3, h4, .stats-value {
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 /* Navigation Tabs */
@@ -298,9 +298,26 @@ select.form-control option {
   color: var(--text-primary);
 }
 
+.btn-outline-info {
+  background: transparent;
+  border: 1px solid var(--info);
+  color: var(--info);
+}
+
+.btn-outline-info:hover {
+  background: var(--info);
+  color: var(--text-primary);
+}
+
 .btn-sm {
   padding: 0.4rem 0.8rem;
   font-size: 0.85rem;
+}
+
+.btn-lg {
+  padding: 1rem 2.2rem;
+  font-size: 1.1rem;
+  border-radius: 10px;
 }
 
 .w-100 {
@@ -440,6 +457,17 @@ select.form-control option {
   border-left: 3px solid var(--danger);
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
+}
+
+.btn-link-wallet {
+  background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+  color: #070b19;
+  border: none;
+  font-weight: 700;
+}
+
+.btn-link-wallet:hover {
+  transform: scale(1.02);
 }
 
 /* Governance / Project Cards */
@@ -888,7 +916,182 @@ select.form-control option {
   border-radius: 12px;
 }
 
-/* Helpers */
+/* Landing Page Design */
+.landing-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  text-align: center;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.landing-hero {
+  margin-bottom: 4rem;
+}
+
+.hero-title {
+  font-size: 4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--text-primary) 20%, var(--primary) 60%, var(--secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 1.5rem;
+  letter-spacing: -1.5px;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+  max-width: 720px;
+  margin: 0 auto 2.5rem auto;
+  line-height: 1.6;
+}
+
+.feature-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 2.2rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  backdrop-filter: blur(12px);
+}
+
+.feature-icon {
+  font-size: 2.2rem;
+}
+
+.feature-card h3 {
+  font-size: 1.3rem;
+  color: var(--text-primary);
+}
+
+.feature-card p {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+/* Auth Page Design */
+.auth-layout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 3rem 0;
+}
+
+.auth-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-glass);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 485px;
+  padding: 2.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(16px);
+}
+
+.auth-title {
+  font-size: 1.8rem;
+  margin-bottom: 0.4rem;
+  text-align: center;
+}
+
+.auth-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-toggle-row {
+  margin-top: 1.2rem;
+  text-align: center;
+}
+
+.btn-text-link {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-text-link:hover {
+  text-decoration: underline;
+}
+
+.quick-login-section {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-glass);
+}
+
+.divider:not(:empty)::before {
+  margin-right: .75em;
+}
+
+.divider:not(:empty)::after {
+  margin-left: .75em;
+}
+
+.btn-back-landing {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  margin-top: 1.5rem;
+  cursor: pointer;
+  display: block;
+  width: max-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.btn-back-landing:hover {
+  color: var(--text-primary);
+}
+
+.full-height-spinner {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-action-buttons {
+  display: flex;
+  gap: 0.35rem;
+}
+
+/* Helpers & Utilities */
 .mb-4 { margin-bottom: 1.5rem; }
 .mb-3 { margin-bottom: 1rem; }
+.mt-4 { margin-top: 2rem; }
 .font-bold { font-weight: 600; }
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}

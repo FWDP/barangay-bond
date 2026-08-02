@@ -1,5 +1,6 @@
 import React from "react";
 import { useWallet } from "../contexts/WalletContext";
+import { useAuth } from "../contexts/AuthContext";
 
 interface WalletSelectorProps {
   balance: string;
@@ -8,9 +9,22 @@ interface WalletSelectorProps {
 export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
   const { address, walletId, connected, connecting, error, connect, disconnect } =
     useWallet();
+  const { profile, linkWallet } = useAuth();
 
   const truncateAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+  };
+
+  const isLinked = profile?.walletAddress && address && profile.walletAddress.toLowerCase() === address.toLowerCase();
+
+  const handleLink = async () => {
+    if (address) {
+      try {
+        await linkWallet(address);
+      } catch (err: any) {
+        alert("Failed to link wallet: " + err.message);
+      }
+    }
   };
 
   return (
@@ -36,6 +50,17 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
             <span className="wallet-address" title={address || ""}>
               {address ? truncateAddress(address) : ""}
             </span>
+            
+            {address && profile && !isLinked && (
+              <button className="btn btn-primary btn-sm btn-link-wallet" onClick={handleLink}>
+                Link Wallet to Profile
+              </button>
+            )}
+            {isLinked && (
+              <span className="badge badge-success" style={{ marginLeft: "0.5rem" }}>
+                Linked
+              </span>
+            )}
           </div>
           <div className="wallet-balance-container">
             <span className="balance-label">Balance:</span>
