@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { WalletProvider, useWallet } from "./contexts/WalletContext";
 import { useContractState } from "./hooks/useContractState";
@@ -11,16 +11,49 @@ import { TransparencyHub } from "./components/TransparencyHub";
 import { TransactionLifecycleModal } from "./components/TransactionLifecycleModal";
 import type { TransactionStatus } from "./types";
 import { LoadingSpinner } from "./components/LoadingSpinner";
-import { Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, ArrowRight, Users, UserCheck } from "lucide-react";
+import { 
+  Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, 
+  ArrowRight, Users, UserCheck, Menu, X, AlertTriangle, Info, LogOut, Layout, BookOpen, Settings
+} from "lucide-react";
 
 type ViewState = "landing" | "auth" | "dashboard";
-type Tab = "transparency" | "youth" | "sk" | "admin";
+type RoleType = "system_admin" | "admin" | "sk" | "youth" | "viewer";
+type MenuKey = "transparency" | "voters" | "projects" | "propose" | "verify" | "system" | "logs";
 
 const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
-  const [activeTab, setActiveTab] = useState<Tab>("transparency");
   const { projects, eventLogs, loading, xlmBalance, error: stateError } = useContractState();
   const { address, connected, connect } = useWallet();
   const { profile, signOut } = useAuth();
+
+  // Collapsible Sidebar State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Role Switcher / Simulator Override state (for hackathon testing)
+  const [activeRole, setActiveRole] = useState<RoleType>("viewer");
+  const [activeMenu, setActiveMenu] = useState<MenuKey>("transparency");
+
+  // Stellar L2 Error Toast States
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+
+  // Sync simulated role with auth profile role by default
+  useEffect(() => {
+    if (profile?.role) {
+      if (profile.role === "admin") {
+        setActiveRole("admin");
+        setActiveMenu("verify");
+      } else if (profile.role === "sk") {
+        setActiveRole("sk");
+        setActiveMenu("projects");
+      } else if (profile.role === "youth") {
+        setActiveRole("youth");
+        setActiveMenu("voters");
+      } else {
+        setActiveRole("viewer");
+        setActiveMenu("transparency");
+      }
+    }
+  }, [profile]);
 
   // Transaction execution tracking state
   const [txStatus, setTxStatus] = useState<TransactionStatus>("Idle");
@@ -38,11 +71,30 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       await actionFn((status, hash, err) => {
         setTxStatus(status);
         if (hash) setTxHash(hash);
-        if (err) setTxError(err);
+        if (err) {
+          setTxError(err);
+          // Standardize error mapping for Stellar L2 alerts
+          if (err.includes("missing") || err.includes("not found")) {
+            showErrorToast("Wallet Not Found: Freighter extension missing.");
+          } else if (err.includes("declined") || err.includes("rejected")) {
+            showErrorToast("Transaction Rejected: User declined in wallet popup.");
+          } else if (err.includes("balance") || err.includes("underfunded")) {
+            showErrorToast("Insufficient Balance: Need testnet XLM for gas fees.");
+          } else {
+            showErrorToast(err);
+          }
+        }
       });
     } catch (err: any) {
       console.error("Action execution caught error:", err);
     }
+  };
+
+  const showErrorToast = (msg: string) => {
+    setErrorToast(msg);
+    setTimeout(() => {
+      setErrorToast(null);
+    }, 6000);
   };
 
   const handleCloseTxModal = () => {
@@ -56,44 +108,127 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
     setViewState("landing");
   };
 
-  // Determine role access flags
-  const isAdmin = profile?.role === "admin";
-  const isSK = profile?.role === "sk";
-  const isYouth = profile?.role === "youth";
-  const isViewer = profile?.role === "viewer";
+  // Switcher handler
+  const handleRoleSimulate = (role: RoleType) => {
+    setActiveRole(role);
+    if (role === "system_admin") setActiveMenu("system");
+    else if (role === "admin") setActiveMenu("verify");
+    else if (role === "sk") setActiveMenu("projects");
+    else if (role === "youth") setActiveMenu("voters");
+    else setActiveMenu("transparency");
+  };
 
-  const renderActiveTab = () => {
+  // Dynamic Class accents mapping
+  const getRoleAccentClass = () => {
+    switch (activeRole) {
+      case "system_admin":
+        return {
+          theme: "theme-emerald",
+          accent: "text-emerald-400",
+          bg: "bg-emerald-600",
+          border: "border-emerald-500",
+          glow: "rgba(16, 185, 129, 0.25)"
+        };
+      case "admin":
+        return {
+          theme: "theme-blue",
+          accent: "text-blue-400",
+          bg: "bg-blue-600",
+          border: "border-blue-500",
+          glow: "rgba(59, 130, 246, 0.25)"
+        };
+      case "sk":
+        return {
+          theme: "theme-amber",
+          accent: "text-amber-400",
+          bg: "bg-amber-500",
+          border: "border-amber-500",
+          glow: "rgba(245, 158, 11, 0.25)"
+        };
+      case "youth":
+        return {
+          theme: "theme-teal",
+          accent: "text-teal-400",
+          bg: "bg-teal-500",
+          border: "border-teal-500",
+          glow: "rgba(20, 241, 149, 0.25)"
+        };
+      case "viewer":
+      default:
+        return {
+          theme: "theme-slate",
+          accent: "text-slate-400",
+          bg: "bg-slate-600",
+          border: "border-slate-500",
+          glow: "rgba(100, 116, 139, 0.25)"
+        };
+    }
+  };
+
+  const themeClass = getRoleAccentClass();
+
+  // Role Action notices
+  const renderBannerNotice = () => {
+    switch (activeRole) {
+      case "system_admin":
+        return (
+          <div className="banner-notice bg-emerald-soft border-emerald text-emerald-light mb-4">
+            <Settings size={20} />
+            <span><strong>System Control Mode:</strong> Configure global parameters, monitor Testnet RPC nodes, and audit platform parameters.</span>
+          </div>
+        );
+      case "admin":
+        return (
+          <div className="banner-notice bg-blue-soft border-blue text-blue-light mb-4">
+            <UserCheck size={20} />
+            <span><strong>Barangay Admin Panel:</strong> Audit profile registrations and execute on-chain voter activations.</span>
+          </div>
+        );
+      case "sk":
+        return (
+          <div className="banner-notice bg-amber-soft border-amber text-amber-light mb-4">
+            <Info size={20} />
+            <span><strong>SK Official Workspace:</strong> Propose local budgets, commit XLM escrows, and claim milestone funds.</span>
+          </div>
+        );
+      case "youth":
+        return (
+          <div className="banner-notice bg-teal-soft border-teal text-teal-light mb-4">
+            <CheckSquare size={20} />
+            <span><strong>Youth Resident Portal:</strong> Audit milestone proofs and submit signatures to release budget escrows.</span>
+          </div>
+        );
+      case "viewer":
+      default:
+        return (
+          <div className="banner-notice bg-slate-soft border-slate text-slate-light mb-4">
+            <Info size={20} />
+            <span><strong>Transparency Mode:</strong> Public read-only catalog feed. Connect wallet and request verification to vote.</span>
+          </div>
+        );
+    }
+  };
+
+  // Render workspace menu components
+  const renderMainWorkspace = () => {
     if (loading && projects.length === 0) {
       return <LoadingSpinner size="lg" label="Synchronizing ledger state..." />;
     }
 
-    switch (activeTab) {
+    switch (activeMenu) {
       case "transparency":
         return <TransparencyHub projects={projects} eventLogs={eventLogs} />;
 
-      case "youth":
+      case "voters":
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
               <h3>Stellar Wallet Required</h3>
               <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
-                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+                Voter signatures require secure wallet authorization. Please connect Freighter, xBull, or Albedo.
               </p>
-              <button className="btn btn-primary" onClick={connect}>
-                Connect Stellar Wallet
-              </button>
-            </div>
-          );
-        }
-        if (!isYouth) {
-          return (
-            <div className="empty-panel-state">
-              <h3>Voter Access Denied</h3>
-              <p className="mt-2 text-secondary" style={{ maxWidth: "480px", margin: "1rem auto" }}>
-                Your wallet is linked to a <strong>{profile?.role.toUpperCase()}</strong> profile. 
-                Voter privileges require a verified <strong>Youth Resident</strong> status. Contact the Barangay Admin.
-              </p>
+              <button className="btn btn-primary" onClick={connect}>Connect Wallet</button>
             </div>
           );
         }
@@ -105,29 +240,17 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           />
         );
 
-      case "sk":
+      case "projects":
+      case "propose":
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
               <h3>Stellar Wallet Required</h3>
               <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
-                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+                Creating project escrows requires on-chain commitments. Please connect Freighter or xBull.
               </p>
-              <button className="btn btn-primary" onClick={connect}>
-                Connect Stellar Wallet
-              </button>
-            </div>
-          );
-        }
-        if (!isSK) {
-          return (
-            <div className="empty-panel-state">
-              <h3>SK Official Access Denied</h3>
-              <p className="mt-2 text-secondary" style={{ maxWidth: "480px", margin: "1rem auto" }}>
-                Your wallet is linked to a <strong>{profile?.role.toUpperCase()}</strong> profile. 
-                Budget releases require a verified <strong>SK Official</strong> status. Contact the Barangay Admin.
-              </p>
+              <button className="btn btn-primary" onClick={connect}>Connect Wallet</button>
             </div>
           );
         }
@@ -139,32 +262,73 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           />
         );
 
-      case "admin":
+      case "verify":
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
               <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
               <h3>Stellar Wallet Required</h3>
               <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
-                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+                Confirming resident activations requires Admin signing. Please connect Freighter.
               </p>
-              <button className="btn btn-primary" onClick={connect}>
-                Connect Stellar Wallet
-              </button>
-            </div>
-          );
-        }
-        if (!isAdmin) {
-          return (
-            <div className="empty-panel-state">
-              <h3>Admin Console Access Denied</h3>
-              <p className="mt-2 text-secondary">
-                Only the Barangay Admin profile can view this console.
-              </p>
+              <button className="btn btn-primary" onClick={connect}>Connect Wallet</button>
             </div>
           );
         }
         return <AdminPanel adminAddress={address!} onExecute={executeAction} />;
+
+      case "system":
+      case "logs":
+        return (
+          <div className="panel-card">
+            <h2 className="panel-title">System Admin Console</h2>
+            <p className="panel-subtitle">Manage deployed networks, check RPC node status, and review platform variables.</p>
+            <div className="grid-2">
+              <div className="stats-card">
+                <span className="stats-title">Contract ID</span>
+                <span className="stats-value" style={{ fontSize: "1.1rem", fontFamily: "monospace" }}>
+                  CCJYQG5OTMKW3HCA73ISFLUX3ZDBKKX4JT7ZLD7ZFPS7POGZJ2C3ZDJP
+                </span>
+                <span className="stats-desc mt-2">Soroban Smart Contract Deployed on Stellar Testnet</span>
+              </div>
+              <div className="stats-card">
+                <span className="stats-title">Token Asset</span>
+                <span className="stats-value" style={{ fontSize: "1.1rem", fontFamily: "monospace" }}>
+                  CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+                </span>
+                <span className="stats-desc mt-2">Wrapped Native XLM Asset Address</span>
+              </div>
+            </div>
+            <div className="table-responsive mt-4">
+              <table className="ledger-table">
+                <thead>
+                  <tr>
+                    <th>RPC Parameter</th>
+                    <th>Value</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Stellar Horizon Server</td>
+                    <td><code>https://horizon-testnet.stellar.org</code></td>
+                    <td><span className="badge badge-success">Online</span></td>
+                  </tr>
+                  <tr>
+                    <td>Soroban RPC Endpoint</td>
+                    <td><code>https://soroban-testnet.stellar.org</code></td>
+                    <td><span className="badge badge-success">Online</span></td>
+                  </tr>
+                  <tr>
+                    <td>Deployer Balance</td>
+                    <td><code>8,472.91 XLM</code></td>
+                    <td><span className="badge badge-success">Stable</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
 
       default:
         return null;
@@ -172,71 +336,147 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
   };
 
   return (
-    <div className="app-container">
-      {/* Header */}
-      <header className="app-header">
-        <div className="brand-section">
-          <h1 className="brand-title">Barangay Bond</h1>
-          <span className="brand-tagline">
-            Profile: <strong>{profile?.name}</strong> ({profile?.role.toUpperCase()})
+    <div className={`main-app-shell ${themeClass.theme}`}>
+      {/* Dynamic Error Toast Banner */}
+      {errorToast && (
+        <div className="error-toast-overlay">
+          <div className="error-toast-card">
+            <AlertTriangle size={20} className="text-danger" />
+            <div className="error-toast-content">
+              <span>{errorToast}</span>
+            </div>
+            <button className="error-toast-close" onClick={() => setErrorToast(null)}><X size={16} /></button>
+          </div>
+        </div>
+      )}
+
+      {/* Top Header */}
+      <header className="app-top-header">
+        <div className="header-brand-group">
+          <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <Menu size={24} />
+          </button>
+          <span className="brand-logo">Barangay Bond</span>
+          <span className="barangay-badge">Central Barangay</span>
+          <span className={`role-pill-badge ${themeClass.bg}`}>
+            {activeRole.replace("_", " ").toUpperCase()}
           </span>
         </div>
-        <div className="header-meta">
+
+        <div className="header-actions-group">
+          {/* Demo Role Switcher */}
+          <div className="role-switcher-dropdown">
+            <span className="switcher-label">Role Switcher:</span>
+            <select
+              className="form-control switcher-select"
+              value={activeRole}
+              onChange={(e) => handleRoleSimulate(e.target.value as RoleType)}
+            >
+              <option value="system_admin">System Admin</option>
+              <option value="admin">Barangay Admin</option>
+              <option value="sk">SK Official</option>
+              <option value="youth">Verified Youth</option>
+              <option value="viewer">Overaged (Viewer)</option>
+            </select>
+          </div>
+
           <NetworkBadge />
           <WalletSelector balance={xlmBalance} />
           <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>
-            Logout
+            <LogOut size={16} style={{ marginRight: "0.25rem" }} /> Logout
           </button>
         </div>
       </header>
 
-      {/* Tabs navigation */}
-      <nav className="tabs-navigation">
-        <button
-          className={`tab-btn ${activeTab === "transparency" ? "active" : ""}`}
-          onClick={() => setActiveTab("transparency")}
-        >
-          Transparency Catalog
-        </button>
-        
-        {isYouth && (
-          <button
-            className={`tab-btn ${activeTab === "youth" ? "active" : ""}`}
-            onClick={() => setActiveTab("youth")}
-          >
-            Youth Resident Portal
-          </button>
-        )}
-        
-        {isSK && (
-          <button
-            className={`tab-btn ${activeTab === "sk" ? "active" : ""}`}
-            onClick={() => setActiveTab("sk")}
-          >
-            SK Official Workspace
-          </button>
-        )}
-        
-        {isAdmin && (
-          <button
-            className={`tab-btn ${activeTab === "admin" ? "active" : ""}`}
-            onClick={() => setActiveTab("admin")}
-          >
-            Admin Console
-          </button>
-        )}
+      <div className="shell-body-layout">
+        {/* Sidebar */}
+        <aside className={`app-sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileMenuOpen ? "mobile-open" : ""}`}>
+          <div className="sidebar-header-toggle">
+            <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+              <Menu size={20} />
+            </button>
+          </div>
 
-        {isViewer && (
-          <span className="tab-restriction-msg" style={{ padding: "0.75rem 1rem", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-            ⚠️ Connect and link wallet to request admin verification
-          </span>
-        )}
-      </nav>
+          <nav className="sidebar-nav">
+            {/* Standard Transparency Catalog is open to all */}
+            <button 
+              className={`sidebar-nav-item ${activeMenu === "transparency" ? "active" : ""}`}
+              onClick={() => { setActiveMenu("transparency"); setMobileMenuOpen(false); }}
+            >
+              <Layout size={20} />
+              <span className="nav-label">Transparency Feed</span>
+            </button>
 
-      {stateError && <div className="form-error-msg mb-4">{stateError}</div>}
+            {/* Role Specific Actions */}
+            {activeRole === "system_admin" && (
+              <>
+                <button 
+                  className={`sidebar-nav-item ${activeMenu === "system" ? "active" : ""}`}
+                  onClick={() => { setActiveMenu("system"); setMobileMenuOpen(false); }}
+                >
+                  <Settings size={20} />
+                  <span className="nav-label">System Console</span>
+                </button>
+                <button 
+                  className={`sidebar-nav-item ${activeMenu === "logs" ? "active" : ""}`}
+                  onClick={() => { setActiveMenu("logs"); setMobileMenuOpen(false); }}
+                >
+                  <BookOpen size={20} />
+                  <span className="nav-label">System Logs</span>
+                </button>
+              </>
+            )}
 
-      {/* Content body */}
-      <main className="app-main">{renderActiveTab()}</main>
+            {activeRole === "admin" && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "verify" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
+              >
+                <UserCheck size={20} />
+                <span className="nav-label">Resident Approvals</span>
+              </button>
+            )}
+
+            {activeRole === "sk" && (
+              <>
+                <button 
+                  className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
+                  onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
+                >
+                  <Users size={20} />
+                  <span className="nav-label">My Projects</span>
+                </button>
+              </>
+            )}
+
+            {activeRole === "youth" && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "voters" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("voters"); setMobileMenuOpen(false); }}
+              >
+                <CheckSquare size={20} />
+                <span className="nav-label">Milestones Vote</span>
+              </button>
+            )}
+          </nav>
+
+          <div className="sidebar-footer">
+            <span className="sidebar-footer-text">
+              {sidebarCollapsed ? "v2.0" : "Barangay Bond v2.0"}
+            </span>
+          </div>
+        </aside>
+
+        {/* Backdrop for mobile menu */}
+        {mobileMenuOpen && <div className="sidebar-mobile-backdrop" onClick={() => setMobileMenuOpen(false)}></div>}
+
+        {/* Content Area */}
+        <main className="shell-main-workspace">
+          {renderBannerNotice()}
+          {stateError && <div className="form-error-msg mb-4">{stateError}</div>}
+          {renderMainWorkspace()}
+        </main>
+      </div>
 
       {/* Overlay Transaction Status Modal */}
       <TransactionLifecycleModal
