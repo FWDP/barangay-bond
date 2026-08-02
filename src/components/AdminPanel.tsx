@@ -88,7 +88,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                     <td className="font-bold">{u.name}</td>
                     <td>{u.email}</td>
                     <td>{u.birthdate}</td>
-                    <td>{u.barangay}</td>
+                    <td>{u.barangayName}</td>
                     <td>
                       {u.walletAddress ? (
                         <code className="wallet-address" title={u.walletAddress}>
@@ -164,7 +164,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                   <tr key={u.uid}>
                     <td className="font-bold">{u.name}</td>
                     <td>{u.email}</td>
-                    <td>{u.barangay}</td>
+                    <td>{u.barangayName}</td>
                     <td>
                       <code className="wallet-address" title={u.walletAddress || ""}>
                         {u.walletAddress ? truncateAddress(u.walletAddress) : "N/A"}

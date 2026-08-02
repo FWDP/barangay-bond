@@ -14,6 +14,9 @@ import {
   collection,
   getDocs,
   query,
+  where,
+  orderBy,
+  addDoc,
 } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
 
@@ -22,13 +25,24 @@ export interface UserProfile {
   email: string;
   name: string;
   birthdate: string;
-  barangay: string;
+  barangayId: string;
+  barangayName: string;
   role: "admin" | "sk" | "youth" | "viewer";
   requestedRole: "sk" | "youth" | "admin" | "viewer";
   walletAddress: string | null;
   verified: boolean;
   verificationStatus: "pending" | "approved" | "rejected";
   createdAt: string;
+}
+
+export interface Barangay {
+  id: string;
+  name: string;
+  municipality: string;
+  province: string;
+  status: "pending" | "approved";
+  createdAt: string;
+  approvedAt: string | null;
 }
 
 interface AuthContextType {
@@ -41,7 +55,8 @@ interface AuthContextType {
     password: string,
     name: string,
     birthdate: string,
-    barangay: string,
+    barangayId: string,
+    barangayName: string,
     desiredRole: "sk" | "youth" | "admin"
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
@@ -54,6 +69,11 @@ interface AuthContextType {
   ) => Promise<void>;
   refreshUsersList: () => Promise<void>;
   refreshRoles: () => Promise<void>;
+  
+  proposeBarangay: (name: string, municipality: string, province: string) => Promise<void>;
+  approveBarangay: (id: string) => Promise<void>;
+  getApprovedBarangays: () => Promise<Barangay[]>;
+  getAllBarangays: () => Promise<Barangay[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -116,11 +136,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     name: string,
     birthdate: string,
-    barangay: string,
+    barangayId: string,
+    barangayName: string,
     desiredRole: "sk" | "youth" | "admin"
   ) => {
     setLoading(true);
     try {
+      // Validate that the selected barangay still exists and is approved (if not registering as admin)
+      if (desiredRole !== "admin") {
+        const docRef = doc(db, "barangays", barangayId);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists() || docSnap.data().status !== "approved") {
+          throw new Error("Selected barangay is no longer approved. Please refresh the page.");
+        }
+      }
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -158,7 +188,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         name,
         birthdate,
-        barangay,
+        barangayId,
+        barangayName,
         role: initialRole,
         requestedRole: initialRequestedRole,
         walletAddress: null,
@@ -259,6 +290,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const proposeBarangay = async (name: string, municipality: string, province: string) => {
+    const barangayRef = collection(db, "barangays");
+    await addDoc(barangayRef, {
+      name,
+      municipality,
+      province,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      approvedAt: null,
+    });
+  };
+
+  const approveBarangay = async (id: string) => {
+    const docRef = doc(db, "barangays", id);
+    await updateDoc(docRef, {
+      status: "approved",
+      approvedAt: new Date().toISOString(),
+    });
+  };
+
+  const getApprovedBarangays = async (): Promise<Barangay[]> => {
+    const q = query(
+      collection(db, "barangays"),
+      where("status", "==", "approved"),
+      orderBy("name", "asc")
+    );
+    const querySnapshot = await getDocs(q);
+    const list: Barangay[] = [];
+    querySnapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Barangay);
+    });
+    return list;
+  };
+
+  const getAllBarangays = async (): Promise<Barangay[]> => {
+    const q = query(
+      collection(db, "barangays"),
+      orderBy("name", "asc")
+    );
+    const querySnapshot = await getDocs(q);
+    const list: Barangay[] = [];
+    querySnapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Barangay);
+    });
+    return list;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -273,6 +351,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         verifyUserInDb,
         refreshUsersList,
         refreshRoles,
+        proposeBarangay,
+        approveBarangay,
+        getApprovedBarangays,
+        getAllBarangays,
       }}
     >
       {children}

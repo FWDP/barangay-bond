@@ -23,7 +23,7 @@ type MenuKey = "transparency" | "voters" | "projects" | "propose" | "verify" | "
 const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
   const { projects, eventLogs, loading, xlmBalance, error: stateError } = useContractState();
   const { address, connected, connect } = useWallet();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, proposeBarangay, approveBarangay, getAllBarangays } = useAuth();
 
   // Collapsible Sidebar State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -35,6 +35,13 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 
   // Stellar L2 Error Toast States
   const [errorToast, setErrorToast] = useState<string | null>(null);
+
+  // Barangay Registry States
+  const [allBarangays, setAllBarangays] = useState<any[]>([]);
+  const [bgyName, setBgyName] = useState("");
+  const [bgyMuni, setBgyMuni] = useState("");
+  const [bgyProv, setBgyProv] = useState("");
+  const [submittingBgy, setSubmittingBgy] = useState(false);
 
   // Sync simulated role with auth profile role by default
   useEffect(() => {
@@ -54,6 +61,49 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       }
     }
   }, [profile]);
+
+  const loadAllBarangays = async () => {
+    try {
+      const list = await getAllBarangays();
+      setAllBarangays(list);
+    } catch (err) {
+      console.error("Failed to load barangays:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (activeRole === "system_admin" && (activeMenu === "system" || activeMenu === "logs")) {
+      loadAllBarangays();
+    }
+  }, [activeRole, activeMenu]);
+
+  const handleProposeBgy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bgyName || !bgyMuni || !bgyProv) return;
+    setSubmittingBgy(true);
+    try {
+      await proposeBarangay(bgyName, bgyMuni, bgyProv);
+      setBgyName("");
+      setBgyMuni("");
+      setBgyProv("");
+      await loadAllBarangays();
+      alert("Barangay proposal created successfully!");
+    } catch (err: any) {
+      alert("Failed to submit proposal: " + err.message);
+    } finally {
+      setSubmittingBgy(false);
+    }
+  };
+
+  const handleApproveBgy = async (id: string) => {
+    try {
+      await approveBarangay(id);
+      await loadAllBarangays();
+      alert("Barangay approved successfully! It is now selectable in registration dropdowns.");
+    } catch (err: any) {
+      alert("Failed to approve: " + err.message);
+    }
+  };
 
   // Transaction execution tracking state
   const [txStatus, setTxStatus] = useState<TransactionStatus>("Idle");
@@ -280,52 +330,154 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       case "system":
       case "logs":
         return (
-          <div className="panel-card">
-            <h2 className="panel-title">System Admin Console</h2>
-            <p className="panel-subtitle">Manage deployed networks, check RPC node status, and review platform variables.</p>
-            <div className="grid-2">
-              <div className="stats-card">
-                <span className="stats-title">Contract ID</span>
-                <span className="stats-value" style={{ fontSize: "1.1rem", fontFamily: "monospace" }}>
-                  CCJYQG5OTMKW3HCA73ISFLUX3ZDBKKX4JT7ZLD7ZFPS7POGZJ2C3ZDJP
-                </span>
-                <span className="stats-desc mt-2">Soroban Smart Contract Deployed on Stellar Testnet</span>
-              </div>
-              <div className="stats-card">
-                <span className="stats-title">Token Asset</span>
-                <span className="stats-value" style={{ fontSize: "1.1rem", fontFamily: "monospace" }}>
-                  CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
-                </span>
-                <span className="stats-desc mt-2">Wrapped Native XLM Asset Address</span>
+          <div className="system-admin-dashboard">
+            {/* Participating Barangays Section */}
+            <div className="panel-card mb-4">
+              <h2 className="panel-title">Participating Barangay Allocations</h2>
+              <p className="panel-subtitle">Propose and approve local government units participating in the platform. Only approved units are visible to residents.</p>
+              
+              <div className="grid-2">
+                {/* Propose Form */}
+                <form onSubmit={handleProposeBgy} className="panel-form" style={{ background: "rgba(0,0,0,0.15)", padding: "1.5rem", borderRadius: "10px" }}>
+                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--role-accent)" }}>Propose Barangay</h3>
+                  
+                  <div className="form-group">
+                    <label>Barangay Name</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Central Barangay"
+                      value={bgyName}
+                      onChange={(e) => setBgyName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Municipality / City</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Manila"
+                      value={bgyMuni}
+                      onChange={(e) => setBgyMuni(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Province</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Metro Manila"
+                      value={bgyProv}
+                      onChange={(e) => setBgyProv(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <button type="submit" className="btn btn-primary" disabled={submittingBgy}>
+                    {submittingBgy ? "Submitting..." : "Propose Participating Barangay"}
+                  </button>
+                </form>
+
+                {/* Proposed List */}
+                <div style={{ maxHeight: "380px", overflowY: "auto" }}>
+                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>Registry Timeline</h3>
+                  {allBarangays.length === 0 ? (
+                    <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>No barangays submitted in the database registry.</p>
+                  ) : (
+                    <div className="table-responsive">
+                      <table className="ledger-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Municipality</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allBarangays.map((b) => (
+                            <tr key={b.id}>
+                              <td className="font-bold">{b.name}</td>
+                              <td>{b.municipality}</td>
+                              <td>
+                                <span className={`badge ${b.status === "approved" ? "badge-success" : "badge-warning"}`}>
+                                  {b.status}
+                                </span>
+                              </td>
+                              <td>
+                                {b.status === "pending" ? (
+                                  <button 
+                                    className="btn btn-primary btn-sm"
+                                    onClick={() => handleApproveBgy(b.id)}
+                                  >
+                                    Approve
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Active</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="table-responsive mt-4">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>RPC Parameter</th>
-                    <th>Value</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Stellar Horizon Server</td>
-                    <td><code>https://horizon-testnet.stellar.org</code></td>
-                    <td><span className="badge badge-success">Online</span></td>
-                  </tr>
-                  <tr>
-                    <td>Soroban RPC Endpoint</td>
-                    <td><code>https://soroban-testnet.stellar.org</code></td>
-                    <td><span className="badge badge-success">Online</span></td>
-                  </tr>
-                  <tr>
-                    <td>Deployer Balance</td>
-                    <td><code>8,472.91 XLM</code></td>
-                    <td><span className="badge badge-success">Stable</span></td>
-                  </tr>
-                </tbody>
-              </table>
+
+            {/* Smart Contract Info */}
+            <div className="panel-card">
+              <h2 className="panel-title">System RPC Node & Contract Details</h2>
+              <p className="panel-subtitle">Manage deployed networks, check RPC node status, and review platform variables.</p>
+              <div className="grid-2">
+                <div className="stats-card">
+                  <span className="stats-title">Contract ID</span>
+                  <span className="stats-value" style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>
+                    CCJYQG5OTMKW3HCA73ISFLUX3ZDBKKX4JT7ZLD7ZFPS7POGZJ2C3ZDJP
+                  </span>
+                  <span className="stats-desc mt-2">Soroban Smart Contract Deployed on Stellar Testnet</span>
+                </div>
+                <div className="stats-card">
+                  <span className="stats-title">Token Asset</span>
+                  <span className="stats-value" style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>
+                    CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+                  </span>
+                  <span className="stats-desc mt-2">Wrapped Native XLM Asset Address</span>
+                </div>
+              </div>
+              <div className="table-responsive mt-4">
+                <table className="ledger-table">
+                  <thead>
+                    <tr>
+                      <th>RPC Parameter</th>
+                      <th>Value</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Stellar Horizon Server</td>
+                      <td><code>https://horizon-testnet.stellar.org</code></td>
+                      <td><span className="badge badge-success">Online</span></td>
+                    </tr>
+                    <tr>
+                      <td>Soroban RPC Endpoint</td>
+                      <td><code>https://soroban-testnet.stellar.org</code></td>
+                      <td><span className="badge badge-success">Online</span></td>
+                    </tr>
+                    <tr>
+                      <td>Deployer Balance</td>
+                      <td><code>8,472.91 XLM</code></td>
+                      <td><span className="badge badge-success">Stable</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         );
@@ -676,12 +828,38 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [birthdate, setBirthdate] = useState("");
-  const [barangay, setBarangay] = useState("Central Barangay");
   const [desiredRole, setDesiredRole] = useState<"youth" | "sk" | "admin">("youth");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  // Dynamic Barangay list state
+  const [approvedBarangays, setApprovedBarangays] = useState<any[]>([]);
+  const [loadingBarangays, setLoadingBarangays] = useState(false);
+  const [selectedBarangayId, setSelectedBarangayId] = useState("");
+
+  const { signIn, signUp, getApprovedBarangays } = useAuth();
+
+  // Load approved barangays asynchronously on registration form display
+  useEffect(() => {
+    if (!isLogin && desiredRole !== "admin") {
+      setLoadingBarangays(true);
+      getApprovedBarangays()
+        .then((list) => {
+          setApprovedBarangays(list);
+          if (list.length > 0) {
+            setSelectedBarangayId(list[0].id);
+          } else {
+            setSelectedBarangayId("");
+          }
+          setLoadingBarangays(false);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch participating barangays:", err);
+          setError("Failed to load participating barangays. Please refresh the page.");
+          setLoadingBarangays(false);
+        });
+    }
+  }, [isLogin, desiredRole]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -692,7 +870,15 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
       if (isLogin) {
         await signIn(email, password);
       } else {
-        await signUp(email, password, name, birthdate, barangay, desiredRole);
+        if (desiredRole === "admin") {
+          await signUp(email, password, name, birthdate, "admin_global", "Global Admin", desiredRole);
+        } else {
+          const selectedBgy = approvedBarangays.find((b) => b.id === selectedBarangayId);
+          if (!selectedBgy) {
+            throw new Error("No approved barangay is selected. Please select one to proceed.");
+          }
+          await signUp(email, password, name, birthdate, selectedBgy.id, selectedBgy.name, desiredRole);
+        }
       }
       setViewState("dashboard");
     } catch (err: any) {
@@ -702,6 +888,8 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
       setLoading(false);
     }
   };
+
+  const isRegistrationDisabled = !isLogin && desiredRole !== "admin" && approvedBarangays.length === 0 && !loadingBarangays;
 
   return (
     <div className="auth-layout">
@@ -740,19 +928,6 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
               </div>
 
               <div className="form-group">
-                <label>Barangay</label>
-                <select
-                  className="form-control"
-                  value={barangay}
-                  onChange={(e) => setBarangay(e.target.value)}
-                >
-                  <option value="Central Barangay">Central Barangay</option>
-                  <option value="West Barangay">West Barangay</option>
-                  <option value="East Barangay">East Barangay</option>
-                </select>
-              </div>
-
-              <div className="form-group">
                 <label>Desired Portal Role</label>
                 <select
                   className="form-control"
@@ -764,6 +939,34 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
                   <option value="admin">Barangay Admin (Platform Admin)</option>
                 </select>
               </div>
+
+              {desiredRole !== "admin" && (
+                <div className="form-group">
+                  <label>Select Participating Barangay</label>
+                  {loadingBarangays ? (
+                    <div style={{ padding: "0.5rem 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                      ⏳ Fetching approved barangays...
+                    </div>
+                  ) : approvedBarangays.length === 0 ? (
+                    <div className="form-error-msg" style={{ fontSize: "0.85rem", padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
+                      ⚠️ There are currently no approved barangays participating in Barangay Bond. Please contact your local government or try again later.
+                    </div>
+                  ) : (
+                    <select
+                      className="form-control"
+                      value={selectedBarangayId}
+                      onChange={(e) => setSelectedBarangayId(e.target.value)}
+                      required
+                    >
+                      {approvedBarangays.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.municipality}, {b.province})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -791,7 +994,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
             />
           </div>
 
-          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+          <button type="submit" className="btn btn-primary w-100" disabled={loading || isRegistrationDisabled}>
             {loading ? "Processing..." : isLogin ? "Login" : "Sign Up"}
           </button>
         </form>
