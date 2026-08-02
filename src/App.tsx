@@ -11,7 +11,7 @@ import { TransparencyHub } from "./components/TransparencyHub";
 import { TransactionLifecycleModal } from "./components/TransactionLifecycleModal";
 import type { TransactionStatus } from "./types";
 import { LoadingSpinner } from "./components/LoadingSpinner";
-import { Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, ArrowRight } from "lucide-react";
+import { Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, ArrowRight, Users, UserCheck } from "lucide-react";
 
 type ViewState = "landing" | "auth" | "dashboard";
 type Tab = "transparency" | "youth" | "sk" | "admin";
@@ -289,10 +289,10 @@ const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ s
         <div className="landing-hero-container">
           <span className="landing-badge">🏆 FWDP Grind Sessions 2026</span>
           <h1 className="landing-hero-title">
-            Empowering the Youth.<br />Securing the Budget.
+            Securing Local Budgets.<br />Empowering Barangay Youth.
           </h1>
           <p className="landing-hero-subtitle">
-            A milestone-based funding platform that gives the youth the power to verify local projects step-by-step using smart escrows.
+            A milestone-based funding platform built on Stellar Soroban for Sangguniang Kabataan (SK) councils in the Philippines. Lock budgets in secure escrows and let verified youth residents approve fund releases.
           </p>
           <div className="landing-hero-ctas">
             <button className="btn btn-navy btn-lg" onClick={handleViewProjects}>
@@ -308,7 +308,7 @@ const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ s
       {/* How it Works Section */}
       <section className="landing-section bg-white-soft">
         <div className="landing-section-container">
-          <h2 className="landing-section-title">Transparent Escrow in 3 Steps</h2>
+          <h2 className="landing-section-title">Milestone Escrow in 3 Steps</h2>
           <p className="landing-section-subtitle">
             How on-chain governance secures funding allocations for community improvements.
           </p>
@@ -318,29 +318,63 @@ const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ s
               <div className="landing-step-icon bg-amber-soft text-amber">
                 <Lock size={28} />
               </div>
-              <h3>1. Lock the Budget</h3>
-              <p>SK Officials propose projects. Funds are secured in a Stellar smart contract.</p>
+              <h3>1. Lock & Mobilize</h3>
+              <p>SK Official deploys the project escrow, locking 100% of the budget. The contract automatically releases a 50% mobilization fund to launch the work.</p>
             </div>
             <div className="landing-step-card">
               <div className="landing-step-icon bg-blue-soft text-blue">
                 <Camera size={28} />
               </div>
-              <h3>2. Submit Proof</h3>
-              <p>Contractors finish Phase 1 and upload photos of the completed milestone.</p>
+              <h3>2. Upload Proof</h3>
+              <p>SK Official uploads verifiable proof of Milestone 1 completion (photos, receipts, reports) directly to the decentralized public timeline.</p>
             </div>
             <div className="landing-step-card">
               <div className="landing-step-icon bg-green-soft text-green">
                 <CheckSquare size={28} />
               </div>
-              <h3>3. Youth Verification</h3>
-              <p>Verified youth residents vote. If approved, Phase 2 funds are automatically released.</p>
+              <h3>3. Youth Payout Vote</h3>
+              <p>Verified youth residents audit the deliverables and sign votes. Reaching the consensus threshold triggers the contract to auto-release the remaining 50%.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Roles Matrix Section */}
+      <section className="landing-section">
+        <div className="landing-section-container">
+          <h2 className="landing-section-title">Platform Roles Matrix</h2>
+          <p className="landing-section-subtitle">
+            Who uses Barangay Bond and how they coordinate within local governance.
+          </p>
+
+          <div className="grid-3">
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-blue-soft text-blue">
+                <UserCheck size={28} />
+              </div>
+              <h3>Barangay Admin</h3>
+              <p>The local gatekeeper. Verifies resident registration profiles, checks birthdates, and authorizes public wallet addresses on-chain.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-amber-soft text-amber">
+                <Users size={28} />
+              </div>
+              <h3>SK Official</h3>
+              <p>The project builder. Proposes community developments (e.g. WiFi Hubs, libraries), locks native budgets, and uploads work audits.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-green-soft text-green">
+                <CheckSquare size={28} />
+              </div>
+              <h3>Youth Resident</h3>
+              <p>The auditor. Verified residents aged 15-30 who inspect deliverables on the transparency catalog and vote on-chain using Stellar wallets.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="landing-section">
+      <section className="landing-section bg-white-soft">
         <div className="landing-section-container">
           <h2 className="landing-section-title">Built for Modern Civic Trust</h2>
           <p className="landing-section-subtitle">
