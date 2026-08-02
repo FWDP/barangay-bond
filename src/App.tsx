@@ -12,15 +12,21 @@ import { TransactionLifecycleModal } from "./components/TransactionLifecycleModa
 import type { TransactionStatus } from "./types";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { 
-  Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, 
-  ArrowRight, Users, UserCheck, Menu, X, AlertTriangle, Info, LogOut, Layout, BookOpen, Settings
+  Lock, Camera, CheckSquare, ShieldCheck, Users, UserCheck, Menu, X, AlertTriangle, Info, LogOut, Layout, BookOpen, Settings,
+  ChevronDown, ChevronRight, Activity
 } from "lucide-react";
 
 type ViewState = "landing" | "auth" | "dashboard";
 type RoleType = "system_admin" | "admin" | "sk" | "youth" | "viewer";
 type MenuKey = "transparency" | "voters" | "projects" | "propose" | "verify" | "system" | "logs";
 
-const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
+interface MainLayoutProps {
+  setViewState: (state: ViewState) => void;
+  isGuest: boolean;
+  setIsGuest: (val: boolean) => void;
+}
+
+const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGuest }) => {
   const { projects, eventLogs, loading, xlmBalance, error: stateError } = useContractState();
   const { address, connected, connect } = useWallet();
   const { profile, signOut, proposeBarangay, approveBarangay, getAllBarangays } = useAuth();
@@ -29,7 +35,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Role Switcher / Simulator Override state (for hackathon testing)
+  // Role Switcher / Simulator Override state (for hackathon testing on localhost)
   const [activeRole, setActiveRole] = useState<RoleType>("viewer");
   const [activeMenu, setActiveMenu] = useState<MenuKey>("transparency");
 
@@ -43,8 +49,16 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
   const [bgyProv, setBgyProv] = useState("");
   const [submittingBgy, setSubmittingBgy] = useState(false);
 
+  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+
   // Sync simulated role with auth profile role by default
   useEffect(() => {
+    if (isGuest) {
+      setActiveRole("viewer");
+      setActiveMenu("transparency");
+      return;
+    }
+
     if (profile?.role) {
       if (profile.role === "admin") {
         setActiveRole("admin");
@@ -60,7 +74,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
         setActiveMenu("transparency");
       }
     }
-  }, [profile]);
+  }, [profile, isGuest]);
 
   const loadAllBarangays = async () => {
     try {
@@ -154,12 +168,15 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
   };
 
   const handleLogout = async () => {
-    await signOut();
+    if (!isGuest) {
+      await signOut();
+    }
+    setIsGuest(false);
     setViewState("landing");
   };
 
-  // Switcher handler
   const handleRoleSimulate = (role: RoleType) => {
+    if (isGuest) return; // Guests are locked in Viewer role
     setActiveRole(role);
     if (role === "system_admin") setActiveMenu("system");
     else if (role === "admin") setActiveMenu("verify");
@@ -168,7 +185,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
     else setActiveMenu("transparency");
   };
 
-  // Dynamic Class accents mapping
   const getRoleAccentClass = () => {
     switch (activeRole) {
       case "system_admin":
@@ -201,7 +217,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           accent: "text-teal-400",
           bg: "bg-teal-500",
           border: "border-teal-500",
-          glow: "rgba(20, 241, 149, 0.25)"
+          glow: "rgba(20, 184, 166, 0.25)"
         };
       case "viewer":
       default:
@@ -217,8 +233,16 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 
   const themeClass = getRoleAccentClass();
 
-  // Role Action notices
   const renderBannerNotice = () => {
+    if (isGuest) {
+      return (
+        <div className="banner-notice bg-slate-soft border-slate text-slate-light mb-4">
+          <Info size={20} />
+          <span><strong>Public Guest Mode:</strong> You are auditing public records. Please click <em>Register</em> or <em>Sign In</em> to vote or manage escrows.</span>
+        </div>
+      );
+    }
+
     switch (activeRole) {
       case "system_admin":
         return (
@@ -259,7 +283,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
     }
   };
 
-  // Render workspace menu components
   const renderMainWorkspace = () => {
     if (loading && projects.length === 0) {
       return <LoadingSpinner size="lg" label="Synchronizing ledger state..." />;
@@ -270,6 +293,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
         return <TransparencyHub projects={projects} eventLogs={eventLogs} />;
 
       case "voters":
+        if (isGuest) return null;
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
@@ -292,6 +316,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 
       case "projects":
       case "propose":
+        if (isGuest) return null;
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
@@ -313,6 +338,7 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
         );
 
       case "verify":
+        if (isGuest) return null;
         if (!connected) {
           return (
             <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
@@ -329,16 +355,15 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 
       case "system":
       case "logs":
+        if (isGuest) return null;
         return (
           <div className="system-admin-dashboard">
-            {/* Participating Barangays Section */}
             <div className="panel-card mb-4">
               <h2 className="panel-title">Participating Barangay Allocations</h2>
               <p className="panel-subtitle">Propose and approve local government units participating in the platform. Only approved units are visible to residents.</p>
               
               <div className="grid-2">
-                {/* Propose Form */}
-                <form onSubmit={handleProposeBgy} className="panel-form" style={{ background: "rgba(0,0,0,0.15)", padding: "1.5rem", borderRadius: "10px" }}>
+                <form onSubmit={handleProposeBgy} className="panel-form" style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "1.5rem", borderRadius: "16px" }}>
                   <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--role-accent)" }}>Propose Barangay</h3>
                   
                   <div className="form-group">
@@ -382,7 +407,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
                   </button>
                 </form>
 
-                {/* Proposed List */}
                 <div style={{ maxHeight: "380px", overflowY: "auto" }}>
                   <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>Registry Timeline</h3>
                   {allBarangays.length === 0 ? (
@@ -430,7 +454,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
               </div>
             </div>
 
-            {/* Smart Contract Info */}
             <div className="panel-card">
               <h2 className="panel-title">System RPC Node & Contract Details</h2>
               <p className="panel-subtitle">Manage deployed networks, check RPC node status, and review platform variables.</p>
@@ -489,7 +512,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 
   return (
     <div className={`main-app-shell ${themeClass.theme}`}>
-      {/* Dynamic Error Toast Banner */}
       {errorToast && (
         <div className="error-toast-overlay">
           <div className="error-toast-card">
@@ -511,37 +533,45 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           <span className="brand-logo">Barangay Bond</span>
           <span className="barangay-badge">Central Barangay</span>
           <span className={`role-pill-badge ${themeClass.bg}`}>
-            {activeRole.replace("_", " ").toUpperCase()}
+            {isGuest ? "GUEST AUDITOR" : activeRole.replace("_", " ").toUpperCase()}
           </span>
         </div>
 
         <div className="header-actions-group">
-          {/* Demo Role Switcher */}
-          <div className="role-switcher-dropdown">
-            <span className="switcher-label">Role Switcher:</span>
-            <select
-              className="form-control switcher-select"
-              value={activeRole}
-              onChange={(e) => handleRoleSimulate(e.target.value as RoleType)}
-            >
-              <option value="system_admin">System Admin</option>
-              <option value="admin">Barangay Admin</option>
-              <option value="sk">SK Official</option>
-              <option value="youth">Verified Youth</option>
-              <option value="viewer">Overaged (Viewer)</option>
-            </select>
-          </div>
+          {/* Switcher is restricted to Localhost Dev environments */}
+          {isLocalhost && !isGuest && (
+            <div className="role-switcher-dropdown">
+              <span className="switcher-label">Dev Switcher:</span>
+              <select
+                className="form-control switcher-select"
+                value={activeRole}
+                onChange={(e) => handleRoleSimulate(e.target.value as RoleType)}
+              >
+                <option value="system_admin">System Admin</option>
+                <option value="admin">Barangay Admin</option>
+                <option value="sk">SK Official</option>
+                <option value="youth">Verified Youth</option>
+                <option value="viewer">Overaged (Viewer)</option>
+              </select>
+            </div>
+          )}
 
           <NetworkBadge />
-          <WalletSelector balance={xlmBalance} />
-          <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>
-            <LogOut size={16} style={{ marginRight: "0.25rem" }} /> Logout
-          </button>
+          {!isGuest && <WalletSelector balance={xlmBalance} />}
+          
+          {isGuest ? (
+            <button className="btn btn-primary btn-sm" onClick={() => setViewState("auth")}>
+              Register / Sign In
+            </button>
+          ) : (
+            <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>
+              <LogOut size={16} style={{ marginRight: "0.25rem" }} /> Logout
+            </button>
+          )}
         </div>
       </header>
 
       <div className="shell-body-layout">
-        {/* Sidebar */}
         <aside className={`app-sidebar ${sidebarCollapsed ? "collapsed" : ""} ${mobileMenuOpen ? "mobile-open" : ""}`}>
           <div className="sidebar-header-toggle">
             <button className="sidebar-collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
@@ -550,7 +580,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           </div>
 
           <nav className="sidebar-nav">
-            {/* Standard Transparency Catalog is open to all */}
             <button 
               className={`sidebar-nav-item ${activeMenu === "transparency" ? "active" : ""}`}
               onClick={() => { setActiveMenu("transparency"); setMobileMenuOpen(false); }}
@@ -559,56 +588,57 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
               <span className="nav-label">Transparency Feed</span>
             </button>
 
-            {/* Role Specific Actions */}
-            {activeRole === "system_admin" && (
+            {!isGuest && (
               <>
-                <button 
-                  className={`sidebar-nav-item ${activeMenu === "system" ? "active" : ""}`}
-                  onClick={() => { setActiveMenu("system"); setMobileMenuOpen(false); }}
-                >
-                  <Settings size={20} />
-                  <span className="nav-label">System Console</span>
-                </button>
-                <button 
-                  className={`sidebar-nav-item ${activeMenu === "logs" ? "active" : ""}`}
-                  onClick={() => { setActiveMenu("logs"); setMobileMenuOpen(false); }}
-                >
-                  <BookOpen size={20} />
-                  <span className="nav-label">System Logs</span>
-                </button>
+                {activeRole === "system_admin" && (
+                  <>
+                    <button 
+                      className={`sidebar-nav-item ${activeMenu === "system" ? "active" : ""}`}
+                      onClick={() => { setActiveMenu("system"); setMobileMenuOpen(false); }}
+                    >
+                      <Settings size={20} />
+                      <span className="nav-label">System Console</span>
+                    </button>
+                    <button 
+                      className={`sidebar-nav-item ${activeMenu === "logs" ? "active" : ""}`}
+                      onClick={() => { setActiveMenu("logs"); setMobileMenuOpen(false); }}
+                    >
+                      <BookOpen size={20} />
+                      <span className="nav-label">System Logs</span>
+                    </button>
+                  </>
+                )}
+
+                {activeRole === "admin" && (
+                  <button 
+                    className={`sidebar-nav-item ${activeMenu === "verify" ? "active" : ""}`}
+                    onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
+                  >
+                    <UserCheck size={20} />
+                    <span className="nav-label">Resident Approvals</span>
+                  </button>
+                )}
+
+                {activeRole === "sk" && (
+                  <button 
+                    className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
+                    onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
+                  >
+                    <Users size={20} />
+                    <span className="nav-label">My Projects</span>
+                  </button>
+                )}
+
+                {activeRole === "youth" && (
+                  <button 
+                    className={`sidebar-nav-item ${activeMenu === "voters" ? "active" : ""}`}
+                    onClick={() => { setActiveMenu("voters"); setMobileMenuOpen(false); }}
+                  >
+                    <CheckSquare size={20} />
+                    <span className="nav-label">Milestones Vote</span>
+                  </button>
+                )}
               </>
-            )}
-
-            {activeRole === "admin" && (
-              <button 
-                className={`sidebar-nav-item ${activeMenu === "verify" ? "active" : ""}`}
-                onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
-              >
-                <UserCheck size={20} />
-                <span className="nav-label">Resident Approvals</span>
-              </button>
-            )}
-
-            {activeRole === "sk" && (
-              <>
-                <button 
-                  className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
-                  onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
-                >
-                  <Users size={20} />
-                  <span className="nav-label">My Projects</span>
-                </button>
-              </>
-            )}
-
-            {activeRole === "youth" && (
-              <button 
-                className={`sidebar-nav-item ${activeMenu === "voters" ? "active" : ""}`}
-                onClick={() => { setActiveMenu("voters"); setMobileMenuOpen(false); }}
-              >
-                <CheckSquare size={20} />
-                <span className="nav-label">Milestones Vote</span>
-              </button>
             )}
           </nav>
 
@@ -619,10 +649,8 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
           </div>
         </aside>
 
-        {/* Backdrop for mobile menu */}
         {mobileMenuOpen && <div className="sidebar-mobile-backdrop" onClick={() => setMobileMenuOpen(false)}></div>}
 
-        {/* Content Area */}
         <main className="shell-main-workspace">
           {renderBannerNotice()}
           {stateError && <div className="form-error-msg mb-4">{stateError}</div>}
@@ -630,7 +658,6 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
         </main>
       </div>
 
-      {/* Overlay Transaction Status Modal */}
       <TransactionLifecycleModal
         status={txStatus}
         txHash={txHash}
@@ -641,35 +668,49 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
   );
 };
 
-const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
-  const { connected, connect, address } = useWallet();
+interface LandingPageProps {
+  setViewState: (state: ViewState) => void;
+  setIsGuest: (val: boolean) => void;
+}
 
-  const handleViewProjects = () => {
-    setViewState("auth");
+const LandingPage: React.FC<LandingPageProps> = ({ setViewState, setIsGuest }) => {
+  const { projects } = useContractState();
+  const { getApprovedBarangays } = useAuth();
+  
+  const [approvedCount, setApprovedCount] = useState(0);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Load real count from database
+  useEffect(() => {
+    getApprovedBarangays()
+      .then((list) => setApprovedCount(list.length))
+      .catch(console.error);
+  }, []);
+
+  const handleEnterGuest = () => {
+    setIsGuest(true);
+    setViewState("dashboard");
   };
 
-  const truncateAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+  const toggleFaq = (index: number) => {
+    setOpenFaq(openFaq === index ? null : index);
   };
+
+  // Process live statistics from contract states
+  const activeCount = projects.filter(p => p.status < 2).length;
+  const totalLocked = projects.reduce((sum, p) => sum + Number(p.budget), 0);
 
   return (
     <div className="landing-page-theme">
-      {/* Landing Navbar */}
+      {/* Navigation */}
       <nav className="landing-nav">
         <div className="landing-nav-container">
-          <span className="landing-logo">Barangay Bond</span>
+          <span className="landing-logo">🇵🇭 Barangay Bond</span>
           <div className="landing-nav-actions">
-            {!connected ? (
-              <button className="btn btn-yellow" onClick={connect}>
-                Connect Wallet
-              </button>
-            ) : (
-              <div className="landing-wallet-connected">
-                <span className="landing-wallet-badge">Freighter</span>
-                <span className="landing-wallet-addr">{truncateAddress(address!)}</span>
-              </div>
-            )}
-            <button className="btn btn-navy" onClick={() => setViewState("auth")}>
+            <button className="btn btn-outline-navy btn-sm" onClick={handleEnterGuest}>
+              Public Transparency Catalog
+            </button>
+            <button className="btn btn-navy btn-sm" onClick={() => setViewState("auth")}>
               Access Portal
             </button>
           </div>
@@ -679,136 +720,127 @@ const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ s
       {/* Hero Section */}
       <section className="landing-hero-section">
         <div className="landing-hero-container">
-          <span className="landing-badge">🏆 FWDP Grind Sessions 2026</span>
+          <span className="landing-badge">🏆 Stellar Journey To Mastery</span>
           <h1 className="landing-hero-title">
-            Securing Local Budgets.<br />Empowering Barangay Youth.
+            Transparent Youth Governance.<br />Escrow Auditing on Stellar.
           </h1>
           <p className="landing-hero-subtitle">
-            A milestone-based funding platform built on Stellar Soroban for Sangguniang Kabataan (SK) councils in the Philippines. Lock budgets in secure escrows and let verified youth residents approve fund releases.
+            A secure digital governance platform that locks local community budgets in smart contracts. Local youth residents verify completed milestones to release funding tranches.
           </p>
           <div className="landing-hero-ctas">
-            <button className="btn btn-navy btn-lg" onClick={handleViewProjects}>
-              View Active Projects <ArrowRight size={18} style={{ marginLeft: "0.5rem" }} />
+            <button className="btn btn-navy btn-lg" onClick={() => setViewState("auth")}>
+              Register LGU Account <ChevronRight size={18} style={{ marginLeft: "0.5rem" }} />
             </button>
-            <button className="btn btn-outline-navy btn-lg" onClick={() => setViewState("auth")}>
-              SK Official Login
+            <button className="btn btn-outline-navy btn-lg" onClick={handleEnterGuest}>
+              View Live Transparency Feed <Activity size={18} style={{ marginLeft: "0.5rem" }} />
             </button>
           </div>
         </div>
       </section>
 
-      {/* How it Works Section */}
+      {/* Statistics Section */}
       <section className="landing-section bg-white-soft">
         <div className="landing-section-container">
-          <h2 className="landing-section-title">Milestone Escrow in 3 Steps</h2>
-          <p className="landing-section-subtitle">
-            How on-chain governance secures funding allocations for community improvements.
-          </p>
-
+          <h2 className="landing-section-title">Live Transparency Registry</h2>
+          <p className="landing-section-subtitle">Real-time statistics queried directly from Firestore profiles and Soroban contract states.</p>
+          
           <div className="grid-3 mt-4">
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-amber-soft text-amber">
-                <Lock size={28} />
-              </div>
-              <h3>1. Lock & Mobilize</h3>
-              <p>SK Official deploys the project escrow, locking 100% of the budget. The contract automatically releases a 50% mobilization fund to launch the work.</p>
+            <div className="stats-card" style={{ alignItems: "center", textAlign: "center" }}>
+              <span className="stats-title" style={{ color: "#3b82f6" }}>LGUs Registered</span>
+              <span className="stats-value">{approvedCount}</span>
+              <span className="stats-desc">Approved participating barangays</span>
             </div>
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-blue-soft text-blue">
-                <Camera size={28} />
-              </div>
-              <h3>2. Upload Proof</h3>
-              <p>SK Official uploads verifiable proof of Milestone 1 completion (photos, receipts, reports) directly to the decentralized public timeline.</p>
+            <div className="stats-card" style={{ alignItems: "center", textAlign: "center" }}>
+              <span className="stats-title" style={{ color: "#f59e0b" }}>Active Escrows</span>
+              <span className="stats-value">{activeCount}</span>
+              <span className="stats-desc">Milestone budgets currently locked</span>
             </div>
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-green-soft text-green">
-                <CheckSquare size={28} />
-              </div>
-              <h3>3. Youth Payout Vote</h3>
-              <p>Verified youth residents audit the deliverables and sign votes. Reaching the consensus threshold triggers the contract to auto-release the remaining 50%.</p>
+            <div className="stats-card" style={{ alignItems: "center", textAlign: "center" }}>
+              <span className="stats-title" style={{ color: "#16a34a" }}>Funds Locked</span>
+              <span className="stats-value">{totalLocked} XLM</span>
+              <span className="stats-desc">Total committed native Stellar tokens</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Roles Matrix Section */}
+      {/* How Milestone Escrows Work */}
       <section className="landing-section">
         <div className="landing-section-container">
-          <h2 className="landing-section-title">Platform Roles Matrix</h2>
-          <p className="landing-section-subtitle">
-            Who uses Barangay Bond and how they coordinate within local governance.
-          </p>
-
-          <div className="grid-3">
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-blue-soft text-blue">
-                <UserCheck size={28} />
-              </div>
-              <h3>Barangay Admin</h3>
-              <p>The local gatekeeper. Verifies resident registration profiles, checks birthdates, and authorizes public wallet addresses on-chain.</p>
+          <h2 className="landing-section-title">How Milestone Escrow Works</h2>
+          <p className="landing-section-subtitle">Our 50%-50% tranche release schedule secures public funds against misallocation.</p>
+          
+          <div className="timeline-horizontal">
+            <div className="timeline-node">
+              <div className="timeline-node-dot">1</div>
+              <span className="timeline-node-label">Lock Escrow</span>
+              <span className="timeline-node-desc">SK Official locks budget and receives 50% upfront.</span>
             </div>
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-amber-soft text-amber">
-                <Users size={28} />
-              </div>
-              <h3>SK Official</h3>
-              <p>The project builder. Proposes community developments (e.g. WiFi Hubs, libraries), locks native budgets, and uploads work audits.</p>
+            <div className="timeline-node">
+              <div className="timeline-node-dot">2</div>
+              <span className="timeline-node-label">Build Phase</span>
+              <span className="timeline-node-desc">Milestone 1 constructed by contractors.</span>
             </div>
-            <div className="landing-step-card">
-              <div className="landing-step-icon bg-green-soft text-green">
-                <CheckSquare size={28} />
-              </div>
-              <h3>Youth Resident</h3>
-              <p>The auditor. Verified residents aged 15-30 who inspect deliverables on the transparency catalog and vote on-chain using Stellar wallets.</p>
+            <div className="timeline-node">
+              <div className="timeline-node-dot">3</div>
+              <span className="timeline-node-label">Upload Proof</span>
+              <span className="timeline-node-desc">Visual receipts and documents uploaded.</span>
+            </div>
+            <div className="timeline-node">
+              <div className="timeline-node-dot">4</div>
+              <span className="timeline-node-label">Youth Vote</span>
+              <span className="timeline-node-desc">Verified residents inspect and sign votes.</span>
+            </div>
+            <div className="timeline-node">
+              <div className="timeline-node-dot">5</div>
+              <span className="timeline-node-label">Auto-Release</span>
+              <span className="timeline-node-desc">Remaining 50% fund released by contract.</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* FAQ Accordion Section */}
       <section className="landing-section bg-white-soft">
         <div className="landing-section-container">
-          <h2 className="landing-section-title">Built for Modern Civic Trust</h2>
-          <p className="landing-section-subtitle">
-            Combining robust Web2 profile protections with public blockchain auditability.
-          </p>
+          <h2 className="landing-section-title">Frequently Asked Questions</h2>
+          <p className="landing-section-subtitle">Common queries regarding residency rules, voter verification, and gas operations.</p>
+          
+          <div className="faq-accordion mt-4">
+            <div className="faq-item">
+              <button className="faq-question" onClick={() => toggleFaq(0)}>
+                <span>Who is eligible to participate and vote?</span>
+                <ChevronDown size={18} style={{ transform: openFaq === 0 ? "rotate(180deg)" : "rotate(0)" }} />
+              </button>
+              {openFaq === 0 && (
+                <div className="faq-answer">
+                  Youth residents aged 15-30 verified by the Barangay Admin. Overaged or underaged residents automatically register as permanent approved viewers to audit timelines but cannot vote on budget releases.
+                </div>
+              )}
+            </div>
 
-          <div className="grid-2 mt-4">
-            <div className="landing-feature-item">
-              <div className="feature-item-icon">
-                <ShieldCheck size={24} className="text-amber" />
-              </div>
-              <div>
-                <h3>Zero Fake Accounts</h3>
-                <p>Strict age checks and database residency controls guarantee only local youth can vote on project allocations.</p>
-              </div>
+            <div className="faq-item">
+              <button className="faq-question" onClick={() => toggleFaq(1)}>
+                <span>Why is the Stellar blockchain utilized?</span>
+                <ChevronDown size={18} style={{ transform: openFaq === 1 ? "rotate(180deg)" : "rotate(0)" }} />
+              </button>
+              {openFaq === 1 && (
+                <div className="faq-answer">
+                  Stellar Soroban smart contracts guarantee decentralized custody of public budgets. Release tranches execute autonomously based on citizen consensus, creating a transparent audit trail with fast settlement speeds and low transaction gas fees.
+                </div>
+              )}
             </div>
-            <div className="landing-feature-item">
-              <div className="feature-item-icon">
-                <Cpu size={24} className="text-amber" />
-              </div>
-              <div>
-                <h3>Automated Tranches</h3>
-                <p>No manual checks or administrative delays. Escrows release funds the moment approvals hit the threshold.</p>
-              </div>
-            </div>
-            <div className="landing-feature-item">
-              <div className="feature-item-icon">
-                <Database size={24} className="text-amber" />
-              </div>
-              <div>
-                <h3>On-Chain Escrows</h3>
-                <p>Budgets are secured in native XLM contract tokens, isolating funds away from third-party custody risks.</p>
-              </div>
-            </div>
-            <div className="landing-feature-item">
-              <div className="feature-item-icon">
-                <RefreshCw size={24} className="text-amber" />
-              </div>
-              <div>
-                <h3>Real-Time Transparency</h3>
-                <p>All operations publish on-chain events that feed directly into the community catalog audit feed.</p>
-              </div>
+
+            <div className="faq-item">
+              <button className="faq-question" onClick={() => toggleFaq(2)}>
+                <span>Are there gas fees for verified resident voting?</span>
+                <ChevronDown size={18} style={{ transform: openFaq === 2 ? "rotate(180deg)" : "rotate(0)" }} />
+              </button>
+              {openFaq === 2 && (
+                <div className="faq-answer">
+                  Voters require native Testnet XLM to sign contract submissions. The Barangay Admin distributes faucet testnet tokens to linked resident wallets upon identity verification.
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -816,7 +848,25 @@ const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ s
 
       {/* Footer */}
       <footer className="landing-footer">
-        <p>Built by Renz Buday (Solo Builder) | Powered by Stellar Soroban</p>
+        <div className="landing-section-container" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "2rem" }}>
+          <div>
+            <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem" }}>🇵🇭 Barangay Bond Portal</h3>
+            <p style={{ color: "#64748b", fontSize: "0.85rem" }}>Official Digital Governance Platform for Sangguniang Kabataan.</p>
+          </div>
+          <div style={{ display: "flex", gap: "3rem" }}>
+            <div>
+              <h4 style={{ fontSize: "0.9rem", color: "#334155", marginBottom: "0.5rem" }}>Resources</h4>
+              <p style={{ color: "#64748b", fontSize: "0.82rem" }}><a href="#" className="proof-link-badge">Privacy Policy</a></p>
+              <p style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "0.25rem" }}><a href="#" className="proof-link-badge">Terms of Service</a></p>
+            </div>
+            <div>
+              <h4 style={{ fontSize: "0.9rem", color: "#334155", marginBottom: "0.5rem" }}>Support</h4>
+              <p style={{ color: "#64748b", fontSize: "0.82rem" }}>support@barangay.gov</p>
+              <p style={{ color: "#64748b", fontSize: "0.82rem", marginTop: "0.25rem" }}>Stellar Testnet Node API</p>
+            </div>
+          </div>
+        </div>
+        <p style={{ marginTop: "2.5rem", borderTop: "1px solid #cbd5e1", paddingTop: "1.5rem" }}>Built by Renz Buday (Solo Builder) | Powered by Stellar Soroban</p>
       </footer>
     </div>
   );
@@ -893,6 +943,39 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
 
   return (
     <div className="auth-layout">
+      {/* Left visual cover split */}
+      <div className="auth-visual-cover">
+        <span className="auth-cover-logo">🇵🇭 Barangay Bond</span>
+        <div style={{ maxWidth: "480px" }}>
+          <h1 className="auth-cover-title">Secure Local Budgets.<br />Empower Barangay Builders.</h1>
+          <div className="auth-cover-features">
+            <div className="auth-cover-feature">
+              <div className="auth-cover-feature-icon"><Lock size={20} /></div>
+              <div className="auth-cover-feature-text">
+                <h4>Decentralized Escrows</h4>
+                <p>Native project allocations are locked inside on-chain escrows, released step-by-step.</p>
+              </div>
+            </div>
+            <div className="auth-cover-feature">
+              <div className="auth-cover-feature-icon"><ShieldCheck size={20} /></div>
+              <div className="auth-cover-feature-text">
+                <h4>Verified Identities</h4>
+                <p>Dynamic birthdate validation checks resident profiles and checks voter age limits.</p>
+              </div>
+            </div>
+            <div className="auth-cover-feature">
+              <div className="auth-cover-feature-icon"><Camera size={20} /></div>
+              <div className="auth-cover-feature-text">
+                <h4>Timeline Audit Feeds</h4>
+                <p>SK Officials submit receipts and completion proof documents directly to the public catalog.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <span className="auth-cover-footer">Stellar Soroban Testnet Portal</span>
+      </div>
+
+      {/* Right card forms */}
       <div className="auth-card">
         <h2 className="auth-title">{isLogin ? "Sign In to Portal" : "Register Resident Profile"}</h2>
         <p className="auth-subtitle">
@@ -1021,6 +1104,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
 
 const AppController: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>("landing");
+  const [isGuest, setIsGuest] = useState(false);
   const { loading, user } = useAuth();
 
   // If loading user state from firebase
@@ -1039,15 +1123,15 @@ const AppController: React.FC = () => {
 
   switch (viewState) {
     case "landing":
-      return <LandingPage setViewState={setViewState} />;
+      return <LandingPage setViewState={setViewState} setIsGuest={setIsGuest} />;
     case "auth":
       return <AuthPage setViewState={setViewState} />;
     case "dashboard":
-      if (!user) {
+      if (!user && !isGuest) {
         setViewState("landing");
         return null;
       }
-      return <MainLayout setViewState={setViewState} />;
+      return <MainLayout setViewState={setViewState} isGuest={isGuest} setIsGuest={setIsGuest} />;
     default:
       return null;
   }
