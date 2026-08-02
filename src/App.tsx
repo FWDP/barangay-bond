@@ -11,6 +11,7 @@ import { TransparencyHub } from "./components/TransparencyHub";
 import { TransactionLifecycleModal } from "./components/TransactionLifecycleModal";
 import type { TransactionStatus } from "./types";
 import { LoadingSpinner } from "./components/LoadingSpinner";
+import { Lock, Camera, CheckSquare, ShieldCheck, Cpu, Database, RefreshCw, ArrowRight } from "lucide-react";
 
 type ViewState = "landing" | "auth" | "dashboard";
 type Tab = "transparency" | "youth" | "sk" | "admin";
@@ -249,36 +250,148 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
 };
 
 const LandingPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
-  return (
-    <div className="landing-layout">
-      <div className="landing-hero">
-        <h1 className="hero-title">Barangay Bond</h1>
-        <p className="hero-subtitle">
-          Empowering youth governance and transparent project allocations in local communities. 
-          Powered by Firebase Identity and Stellar Soroban Escrow contracts.
-        </p>
-        <button className="btn btn-primary btn-lg" onClick={() => setViewState("auth")}>
-          Enter Governance Portal
-        </button>
-      </div>
+  const { connected, connect, address } = useWallet();
 
-      <div className="landing-features grid-3 mt-4">
-        <div className="feature-card">
-          <div className="feature-icon">🛡️</div>
-          <h3>Firebase Identity</h3>
-          <p>Secure authentication, Birthdate validation, residency verifications, and account protection.</p>
+  const handleViewProjects = () => {
+    setViewState("auth");
+  };
+
+  const truncateAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-6)}`;
+  };
+
+  return (
+    <div className="landing-page-theme">
+      {/* Landing Navbar */}
+      <nav className="landing-nav">
+        <div className="landing-nav-container">
+          <span className="landing-logo">Barangay Bond</span>
+          <div className="landing-nav-actions">
+            {!connected ? (
+              <button className="btn btn-yellow" onClick={connect}>
+                Connect Wallet
+              </button>
+            ) : (
+              <div className="landing-wallet-connected">
+                <span className="landing-wallet-badge">Freighter</span>
+                <span className="landing-wallet-addr">{truncateAddress(address!)}</span>
+              </div>
+            )}
+            <button className="btn btn-navy" onClick={() => setViewState("auth")}>
+              Access Portal
+            </button>
+          </div>
         </div>
-        <div className="feature-card">
-          <div className="feature-icon">⛓️</div>
-          <h3>Soroban Escrows</h3>
-          <p>Native XLM budgets are locked in decentralized contracts and released via milestone reviews.</p>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="landing-hero-section">
+        <div className="landing-hero-container">
+          <span className="landing-badge">🏆 FWDP Grind Sessions 2026</span>
+          <h1 className="landing-hero-title">
+            Empowering the Youth.<br />Securing the Budget.
+          </h1>
+          <p className="landing-hero-subtitle">
+            A milestone-based funding platform that gives the youth the power to verify local projects step-by-step using smart escrows.
+          </p>
+          <div className="landing-hero-ctas">
+            <button className="btn btn-navy btn-lg" onClick={handleViewProjects}>
+              View Active Projects <ArrowRight size={18} style={{ marginLeft: "0.5rem" }} />
+            </button>
+            <button className="btn btn-outline-navy btn-lg" onClick={() => setViewState("auth")}>
+              SK Official Login
+            </button>
+          </div>
         </div>
-        <div className="feature-card">
-          <div className="feature-icon">🗳️</div>
-          <h3>Youth Governance</h3>
-          <p>Verified youth residents use secure wallets to audit, approve, or reject community projects.</p>
+      </section>
+
+      {/* How it Works Section */}
+      <section className="landing-section bg-white-soft">
+        <div className="landing-section-container">
+          <h2 className="landing-section-title">Transparent Escrow in 3 Steps</h2>
+          <p className="landing-section-subtitle">
+            How on-chain governance secures funding allocations for community improvements.
+          </p>
+
+          <div className="grid-3 mt-4">
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-amber-soft text-amber">
+                <Lock size={28} />
+              </div>
+              <h3>1. Lock the Budget</h3>
+              <p>SK Officials propose projects. Funds are secured in a Stellar smart contract.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-blue-soft text-blue">
+                <Camera size={28} />
+              </div>
+              <h3>2. Submit Proof</h3>
+              <p>Contractors finish Phase 1 and upload photos of the completed milestone.</p>
+            </div>
+            <div className="landing-step-card">
+              <div className="landing-step-icon bg-green-soft text-green">
+                <CheckSquare size={28} />
+              </div>
+              <h3>3. Youth Verification</h3>
+              <p>Verified youth residents vote. If approved, Phase 2 funds are automatically released.</p>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="landing-section">
+        <div className="landing-section-container">
+          <h2 className="landing-section-title">Built for Modern Civic Trust</h2>
+          <p className="landing-section-subtitle">
+            Combining robust Web2 profile protections with public blockchain auditability.
+          </p>
+
+          <div className="grid-2 mt-4">
+            <div className="landing-feature-item">
+              <div className="feature-item-icon">
+                <ShieldCheck size={24} className="text-amber" />
+              </div>
+              <div>
+                <h3>Zero Fake Accounts</h3>
+                <p>Strict age checks and database residency controls guarantee only local youth can vote on project allocations.</p>
+              </div>
+            </div>
+            <div className="landing-feature-item">
+              <div className="feature-item-icon">
+                <Cpu size={24} className="text-amber" />
+              </div>
+              <div>
+                <h3>Automated Tranches</h3>
+                <p>No manual checks or administrative delays. Escrows release funds the moment approvals hit the threshold.</p>
+              </div>
+            </div>
+            <div className="landing-feature-item">
+              <div className="feature-item-icon">
+                <Database size={24} className="text-amber" />
+              </div>
+              <div>
+                <h3>On-Chain Escrows</h3>
+                <p>Budgets are secured in native XLM contract tokens, isolating funds away from third-party custody risks.</p>
+              </div>
+            </div>
+            <div className="landing-feature-item">
+              <div className="feature-item-icon">
+                <RefreshCw size={24} className="text-amber" />
+              </div>
+              <div>
+                <h3>Real-Time Transparency</h3>
+                <p>All operations publish on-chain events that feed directly into the community catalog audit feed.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="landing-footer">
+        <p>Built by Renz Buday (Solo Builder) | Powered by Stellar Soroban</p>
+      </footer>
     </div>
   );
 };
