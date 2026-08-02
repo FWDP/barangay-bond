@@ -33,6 +33,12 @@ export interface UserProfile {
   verified: boolean;
   verificationStatus: "pending" | "approved" | "rejected";
   createdAt: string;
+  mobileNumber: string;
+  address: string;
+  idType: string;
+  idNumber: string;
+  schoolName: string;
+  idPhotoUrl: string;
 }
 
 export interface Barangay {
@@ -57,7 +63,13 @@ interface AuthContextType {
     birthdate: string,
     barangayId: string,
     barangayName: string,
-    desiredRole: "sk" | "youth" | "admin"
+    desiredRole: "sk" | "youth" | "admin",
+    mobileNumber: string,
+    address: string,
+    idType: string,
+    idNumber: string,
+    schoolName: string,
+    idPhotoUrl: string
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -138,7 +150,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     birthdate: string,
     barangayId: string,
     barangayName: string,
-    desiredRole: "sk" | "youth" | "admin"
+    desiredRole: "sk" | "youth" | "admin",
+    mobileNumber: string,
+    address: string,
+    idType: string,
+    idNumber: string,
+    schoolName: string,
+    idPhotoUrl: string
   ) => {
     setLoading(true);
     try {
@@ -196,6 +214,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         verified: initialVerified,
         verificationStatus: initialStatus,
         createdAt: new Date().toISOString(),
+        mobileNumber,
+        address,
+        idType,
+        idNumber,
+        schoolName,
+        idPhotoUrl,
       };
 
       // Save user profile to Firestore

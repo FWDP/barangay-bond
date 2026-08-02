@@ -28,7 +28,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll([
           'uid', 'email', 'name', 'birthdate', 'barangayId', 
           'barangayName', 'role', 'requestedRole', 'verified', 
-          'verificationStatus', 'createdAt'
+          'verificationStatus', 'createdAt', 'mobileNumber',
+          'address', 'idType', 'idNumber', 'schoolName', 'idPhotoUrl'
         ])
         && request.resource.data.uid == userId
         && (

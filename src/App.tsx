@@ -882,6 +882,14 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Identity Verification States
+  const [mobileNumber, setMobileNumber] = useState("");
+  const [address, setAddress] = useState("");
+  const [idType, setIdType] = useState("barangay");
+  const [idNumber, setIdNumber] = useState("");
+  const [schoolName, setSchoolName] = useState("");
+  const [idPhotoUrl, setIdPhotoUrl] = useState("");
+
   // Dynamic Barangay list state
   const [approvedBarangays, setApprovedBarangays] = useState<any[]>([]);
   const [loadingBarangays, setLoadingBarangays] = useState(false);
@@ -921,13 +929,41 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
         await signIn(email, password);
       } else {
         if (desiredRole === "admin") {
-          await signUp(email, password, name, birthdate, "admin_global", "Global Admin", desiredRole);
+          await signUp(
+            email, 
+            password, 
+            name, 
+            birthdate, 
+            "admin_global", 
+            "Global Admin", 
+            desiredRole,
+            mobileNumber || "N/A",
+            address || "N/A",
+            "admin",
+            "N/A",
+            "N/A",
+            "N/A"
+          );
         } else {
           const selectedBgy = approvedBarangays.find((b) => b.id === selectedBarangayId);
           if (!selectedBgy) {
             throw new Error("No approved barangay is selected. Please select one to proceed.");
           }
-          await signUp(email, password, name, birthdate, selectedBgy.id, selectedBgy.name, desiredRole);
+          await signUp(
+            email,
+            password,
+            name,
+            birthdate,
+            selectedBgy.id,
+            selectedBgy.name,
+            desiredRole,
+            mobileNumber,
+            address,
+            idType,
+            idNumber,
+            schoolName || "N/A",
+            idPhotoUrl || "https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&w=400&q=80"
+          );
         }
       }
       setViewState("dashboard");
@@ -1024,31 +1060,122 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
               </div>
 
               {desiredRole !== "admin" && (
-                <div className="form-group">
-                  <label>Select Participating Barangay</label>
-                  {loadingBarangays ? (
-                    <div style={{ padding: "0.5rem 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                      ⏳ Fetching approved barangays...
-                    </div>
-                  ) : approvedBarangays.length === 0 ? (
-                    <div className="form-error-msg" style={{ fontSize: "0.85rem", padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
-                      ⚠️ There are currently no approved barangays participating in Barangay Bond. Please contact your local government or try again later.
-                    </div>
-                  ) : (
+                <>
+                  <div className="form-group">
+                    <label>Select Participating Barangay</label>
+                    {loadingBarangays ? (
+                      <div style={{ padding: "0.5rem 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                        ⏳ Fetching approved barangays...
+                      </div>
+                    ) : approvedBarangays.length === 0 ? (
+                      <div className="form-error-msg" style={{ fontSize: "0.85rem", padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
+                        ⚠️ There are currently no approved barangays participating in Barangay Bond. Please contact your LGU.
+                      </div>
+                    ) : (
+                      <select
+                        className="form-control"
+                        value={selectedBarangayId}
+                        onChange={(e) => setSelectedBarangayId(e.target.value)}
+                        required
+                      >
+                        {approvedBarangays.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.municipality}, {b.province})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="form-group">
+                    <label>Mobile Number</label>
+                    <input
+                      type="tel"
+                      className="form-control"
+                      placeholder="e.g. 09171234567"
+                      value={mobileNumber}
+                      onChange={(e) => setMobileNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Residential Address</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Unit 4B, 123 Rizal St"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Identity Document Type</label>
                     <select
                       className="form-control"
-                      value={selectedBarangayId}
-                      onChange={(e) => setSelectedBarangayId(e.target.value)}
+                      value={idType}
+                      onChange={(e) => setIdType(e.target.value)}
                       required
                     >
-                      {approvedBarangays.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} ({b.municipality}, {b.province})
-                        </option>
-                      ))}
+                      <option value="barangay">Barangay ID (Preferred)</option>
+                      <option value="student">Student ID</option>
+                      <option value="national">National ID (PhilSys)</option>
+                      <option value="passport">Passport</option>
+                      <option value="driver">Driver's License</option>
+                      <option value="other">Other government ID</option>
                     </select>
+                  </div>
+
+                  {idType === "student" && (
+                    <div className="form-group">
+                      <label>School / University Name</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. University of the Philippines"
+                        value={schoolName}
+                        onChange={(e) => setSchoolName(e.target.value)}
+                        required
+                      />
+                    </div>
                   )}
-                </div>
+
+                  <div className="form-group">
+                    <label>Document ID Number</label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. BGY-2026-98472"
+                      value={idNumber}
+                      onChange={(e) => setIdNumber(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Upload Photo of Document ID</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="form-control"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setIdPhotoUrl(URL.createObjectURL(file));
+                        }
+                      }}
+                      required={!idPhotoUrl}
+                    />
+                    {idPhotoUrl && (
+                      <div className="mt-2" style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "120px", height: "80px", position: "relative" }}>
+                        <img src={idPhotoUrl} alt="ID Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <span style={{ position: "absolute", bottom: "4px", right: "4px", background: "rgba(22, 163, 74, 0.9)", color: "#ffffff", padding: "0.1rem 0.3rem", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>PREVIEW</span>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </>
           )}

@@ -260,6 +260,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                   <span style={{ color: "var(--text-secondary)" }}>Birthdate / Age:</span>
                   <span style={{ fontWeight: 700 }}>{selectedUser.birthdate} ({getAge(selectedUser.birthdate)} yrs)</span>
                 </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Mobile Number:</span>
+                  <span style={{ fontWeight: 700 }}>{selectedUser.mobileNumber || "N/A"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>Address:</span>
+                  <span style={{ fontWeight: 700 }}>{selectedUser.address || "N/A"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>ID Document Type:</span>
+                  <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{selectedUser.idType || "N/A"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                  <span style={{ color: "var(--text-secondary)" }}>ID Document Number:</span>
+                  <span style={{ fontWeight: 700 }}>{selectedUser.idNumber || "N/A"}</span>
+                </div>
+                {selectedUser.idType === "student" && selectedUser.schoolName && (
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>School/University:</span>
+                    <span style={{ fontWeight: 700 }}>{selectedUser.schoolName}</span>
+                  </div>
+                )}
+                {selectedUser.idPhotoUrl && selectedUser.idPhotoUrl !== "N/A" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Uploaded ID Document Photo:</span>
+                    <div style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "100%", height: "160px" }}>
+                      <img src={selectedUser.idPhotoUrl} alt="LGU Verified ID" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </div>
+                  </div>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
                   <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Stellar Public Address:</span>
                   {selectedUser.walletAddress ? (
