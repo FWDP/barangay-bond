@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 type ViewState = "landing" | "auth" | "dashboard";
-type RoleType = "system_admin" | "admin" | "sk" | "youth" | "viewer";
+type RoleType = "system_admin" | "barangay_admin" | "sk_official" | "resident" | "viewer";
 type MenuKey = "transparency" | "voters" | "projects" | "propose" | "verify" | "system" | "logs";
 
 interface MainLayoutProps {
@@ -60,14 +60,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
     }
 
     if (profile?.role) {
-      if (profile.role === "admin") {
-        setActiveRole("admin");
+      if (profile.role === "system_admin") {
+        setActiveRole("system_admin");
+        setActiveMenu("system");
+      } else if (profile.role === "barangay_admin") {
+        setActiveRole("barangay_admin");
         setActiveMenu("verify");
-      } else if (profile.role === "sk") {
-        setActiveRole("sk");
+      } else if (profile.role === "sk_official") {
+        setActiveRole("sk_official");
         setActiveMenu("projects");
-      } else if (profile.role === "youth") {
-        setActiveRole("youth");
+      } else if (profile.role === "resident") {
+        setActiveRole("resident");
         setActiveMenu("voters");
       } else {
         setActiveRole("viewer");
@@ -179,9 +182,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
     if (isGuest) return; // Guests are locked in Viewer role
     setActiveRole(role);
     if (role === "system_admin") setActiveMenu("system");
-    else if (role === "admin") setActiveMenu("verify");
-    else if (role === "sk") setActiveMenu("projects");
-    else if (role === "youth") setActiveMenu("voters");
+    else if (role === "barangay_admin") setActiveMenu("verify");
+    else if (role === "sk_official") setActiveMenu("projects");
+    else if (role === "resident") setActiveMenu("voters");
     else setActiveMenu("transparency");
   };
 
@@ -195,7 +198,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
           border: "border-emerald-500",
           glow: "rgba(16, 185, 129, 0.25)"
         };
-      case "admin":
+      case "barangay_admin":
         return {
           theme: "theme-blue",
           accent: "text-blue-400",
@@ -203,7 +206,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
           border: "border-blue-500",
           glow: "rgba(59, 130, 246, 0.25)"
         };
-      case "sk":
+      case "sk_official":
         return {
           theme: "theme-amber",
           accent: "text-amber-400",
@@ -211,7 +214,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
           border: "border-amber-500",
           glow: "rgba(245, 158, 11, 0.25)"
         };
-      case "youth":
+      case "resident":
         return {
           theme: "theme-teal",
           accent: "text-teal-400",
@@ -243,6 +246,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
       );
     }
 
+    if (isPendingApproval) {
+      return (
+        <div className="banner-notice mb-4" style={{ background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#92400e" }}>
+          <AlertTriangle size={20} />
+          <span><strong>Pending Approval:</strong> Your {profile?.role === "barangay_admin" ? "Barangay Admin" : "Resident"} application is under review. You can browse the Transparency Feed while waiting.</span>
+        </div>
+      );
+    }
+
     switch (activeRole) {
       case "system_admin":
         return (
@@ -251,25 +263,25 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
             <span><strong>System Control Mode:</strong> Configure global parameters, monitor Testnet RPC nodes, and audit platform parameters.</span>
           </div>
         );
-      case "admin":
+      case "barangay_admin":
         return (
           <div className="banner-notice bg-blue-soft border-blue text-blue-light mb-4">
             <UserCheck size={20} />
             <span><strong>Barangay Admin Panel:</strong> Audit profile registrations and execute on-chain voter activations.</span>
           </div>
         );
-      case "sk":
+      case "sk_official":
         return (
           <div className="banner-notice bg-amber-soft border-amber text-amber-light mb-4">
             <Info size={20} />
             <span><strong>SK Official Workspace:</strong> Propose local budgets, commit XLM escrows, and claim milestone funds.</span>
           </div>
         );
-      case "youth":
+      case "resident":
         return (
           <div className="banner-notice bg-teal-soft border-teal text-teal-light mb-4">
             <CheckSquare size={20} />
-            <span><strong>Youth Resident Portal:</strong> Audit milestone proofs and submit signatures to release budget escrows.</span>
+            <span><strong>Verified Resident Portal:</strong> Audit milestone proofs and submit signatures to release budget escrows.</span>
           </div>
         );
       case "viewer":
@@ -283,9 +295,86 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
     }
   };
 
+  // Check if current user is in a pending/unverified state
+  const isPendingApproval = !isGuest && profile && (
+    (profile.role === "barangay_admin" && profile.verificationStatus !== "approved") ||
+    (profile.role === "resident" && profile.verificationStatus !== "approved")
+  );
+
+  const renderPendingScreen = () => {
+    const roleLabel = profile?.role === "barangay_admin" ? "Barangay Admin" : "Resident";
+    const approverLabel = profile?.role === "barangay_admin" ? "System Admin" : "Barangay Admin";
+    return (
+      <div style={{ maxWidth: "560px", margin: "3rem auto", textAlign: "center" }}>
+        <div style={{
+          background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.04))",
+          border: "1px solid rgba(245, 158, 11, 0.25)",
+          borderRadius: "20px",
+          padding: "3rem 2rem"
+        }}>
+          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
+          <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
+            Pending {roleLabel} Approval
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+            Your <strong>{roleLabel}</strong> registration has been received and is awaiting approval from the <strong>{approverLabel}</strong>.
+            You will gain access to administrative tools once your application is reviewed and approved.
+          </p>
+
+          <div style={{
+            background: "rgba(0,0,0,0.03)",
+            border: "1px solid #e2e8f0",
+            borderRadius: "12px",
+            padding: "1.25rem",
+            textAlign: "left",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.6rem"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Account:</span>
+              <span style={{ fontWeight: 700 }}>{profile?.email}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Role Requested:</span>
+              <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{profile?.role?.replace("_", " ")}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Status:</span>
+              <span className="badge badge-warning" style={{ fontWeight: 700 }}>
+                {profile?.verificationStatus?.toUpperCase() || "PENDING"}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+              <span style={{ color: "var(--text-secondary)" }}>Submitted:</span>
+              <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: "0.82rem" }}>
+                {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "N/A"}
+              </span>
+            </div>
+            {profile?.verificationNotes && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Notes:</span>
+                <span style={{ fontWeight: 600, color: "#ef4444" }}>{profile.verificationNotes}</span>
+              </div>
+            )}
+          </div>
+
+          <p style={{ marginTop: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+            You can still browse the <strong>Transparency Feed</strong> while waiting. Check back after your {approverLabel} completes the review.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderMainWorkspace = () => {
     if (loading && projects.length === 0) {
       return <LoadingSpinner size="lg" label="Synchronizing ledger state..." />;
+    }
+
+    // If user is pending approval, only allow transparency feed — everything else shows the pending screen
+    if (isPendingApproval && activeMenu !== "transparency") {
+      return renderPendingScreen();
     }
 
     switch (activeMenu) {
@@ -548,10 +637,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
                 onChange={(e) => handleRoleSimulate(e.target.value as RoleType)}
               >
                 <option value="system_admin">System Admin</option>
-                <option value="admin">Barangay Admin</option>
-                <option value="sk">SK Official</option>
-                <option value="youth">Verified Youth</option>
-                <option value="viewer">Overaged (Viewer)</option>
+                <option value="barangay_admin">Barangay Admin</option>
+                <option value="sk_official">SK Official</option>
+                <option value="resident">Verified Resident</option>
+                <option value="viewer">Unverified (Viewer)</option>
               </select>
             </div>
           )}
@@ -609,7 +698,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
                   </>
                 )}
 
-                {activeRole === "admin" && (
+                {activeRole === "barangay_admin" && !isPendingApproval && (
                   <button 
                     className={`sidebar-nav-item ${activeMenu === "verify" ? "active" : ""}`}
                     onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
@@ -619,7 +708,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
                   </button>
                 )}
 
-                {activeRole === "sk" && (
+                {activeRole === "sk_official" && (
                   <button 
                     className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
                     onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
@@ -629,13 +718,24 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
                   </button>
                 )}
 
-                {activeRole === "youth" && (
+                {activeRole === "resident" && !isPendingApproval && (
                   <button 
                     className={`sidebar-nav-item ${activeMenu === "voters" ? "active" : ""}`}
                     onClick={() => { setActiveMenu("voters"); setMobileMenuOpen(false); }}
                   >
                     <CheckSquare size={20} />
                     <span className="nav-label">Milestones Vote</span>
+                  </button>
+                )}
+
+                {isPendingApproval && (
+                  <button 
+                    className={`sidebar-nav-item ${activeMenu !== "transparency" ? "active" : ""}`}
+                    onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
+                    style={{ color: "#f59e0b" }}
+                  >
+                    <AlertTriangle size={20} />
+                    <span className="nav-label">Pending Approval</span>
                   </button>
                 )}
               </>
@@ -878,7 +978,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [birthdate, setBirthdate] = useState("");
-  const [desiredRole, setDesiredRole] = useState<"youth" | "sk" | "admin">("youth");
+  const [desiredRole, setDesiredRole] = useState<"resident" | "barangay_admin">("resident");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -899,7 +999,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
 
   // Load approved barangays asynchronously on registration form display
   useEffect(() => {
-    if (!isLogin && desiredRole !== "admin") {
+    if (!isLogin && desiredRole === "resident") {
       setLoadingBarangays(true);
       getApprovedBarangays()
         .then((list) => {
@@ -928,16 +1028,17 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
       if (isLogin) {
         await signIn(email, password);
       } else {
-        if (desiredRole === "admin") {
+        if (desiredRole === "barangay_admin") {
+          // Barangay Admins register without a barangay — they'll be assigned one by System Admin
           await signUp(
             email, 
             password, 
             name, 
             birthdate, 
-            "admin_global", 
-            "Global Admin", 
-            "Admin City",
-            "Admin Province",
+            "unassigned", 
+            "Unassigned", 
+            "N/A",
+            "N/A",
             desiredRole,
             mobileNumber || "N/A",
             address || "N/A",
@@ -979,7 +1080,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
     }
   };
 
-  const isRegistrationDisabled = !isLogin && desiredRole !== "admin" && approvedBarangays.length === 0 && !loadingBarangays;
+  const isRegistrationDisabled = !isLogin && desiredRole === "resident" && approvedBarangays.length === 0 && !loadingBarangays;
 
   return (
     <div className="auth-layout">
@@ -1057,13 +1158,12 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
                   value={desiredRole}
                   onChange={(e) => setDesiredRole(e.target.value as any)}
                 >
-                  <option value="youth">Youth Resident (Voter)</option>
-                  <option value="sk">SK Official (Creator)</option>
-                  <option value="admin">Barangay Admin (Platform Admin)</option>
+                  <option value="resident">Resident (Voter)</option>
+                  <option value="barangay_admin">Barangay Admin</option>
                 </select>
               </div>
 
-              {desiredRole !== "admin" && (
+              {desiredRole === "resident" && (
                 <>
                   <div className="form-group">
                     <label>Select Participating Barangay</label>
@@ -1221,7 +1321,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
 
         {isLogin && (
           <div style={{ marginTop: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)", textAlign: "center" }}>
-            💡 Tip: You can register any email as a <strong>Barangay Admin</strong> to instantly access administrative approval tools.
+            💡 Tip: Register as a <strong>Barangay Admin</strong> to manage residents, or as a <strong>Resident</strong> to vote on projects. System Admin accounts are pre-provisioned.
           </div>
         )}
 
