@@ -33,9 +33,18 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
     });
   };
 
-  // Determine eligibility
-  const isVoter = profile?.role === "youth";
+  const getAge = (birthdate: string) => {
+    if (!birthdate) return 0;
+    const birthYear = new Date(birthdate).getFullYear();
+    const currentYear = new Date().getFullYear();
+    return currentYear - birthYear;
+  };
+
+  const age = profile ? getAge(profile.birthdate) : 0;
+  const isAgeEligible = age >= 15 && age <= 30;
+  const isVerified = profile?.verified === true && profile?.verificationStatus === "approved";
   const isPending = profile?.verificationStatus === "pending";
+  const isEligibleVoter = profile?.role === "youth" && isVerified && isAgeEligible;
 
   return (
     <div className="youth-dashboard" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -59,8 +68,12 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
             <span style={{ color: "#94a3b8" }}>Identity:</span>
             {isPending ? (
               <span className="badge badge-warning" style={{ fontSize: "0.7rem" }}>Pending Verification</span>
-            ) : isVoter ? (
+            ) : isEligibleVoter ? (
               <span className="badge badge-success" style={{ fontSize: "0.7rem" }}>Verified Youth Resident</span>
+            ) : !isAgeEligible ? (
+              <span className="badge badge-info" style={{ fontSize: "0.7rem" }}>Viewer (Age Ineligible: {age} yrs)</span>
+            ) : !isVerified ? (
+              <span className="badge badge-danger" style={{ fontSize: "0.7rem" }}>Unverified</span>
             ) : (
               <span className="badge badge-info" style={{ fontSize: "0.7rem" }}>Approved Viewer</span>
             )}
@@ -75,7 +88,7 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
             <span style={{ color: "#94a3b8" }}>Voting Right:</span>
-            {isVoter ? (
+            {isEligibleVoter ? (
               <span style={{ color: "#14f195", fontWeight: 700 }}>Eligible Voter</span>
             ) : (
               <span style={{ color: "#cbd5e1" }}>Read-Only Auditor</span>
@@ -149,7 +162,7 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
                 </div>
 
                 {/* Voter action button checks */}
-                {isVoter ? (
+                {isEligibleVoter ? (
                   <div className="voting-action-row" style={{ marginTop: "0.5rem" }}>
                     <button
                       className="btn btn-primary flex-grow"
@@ -166,7 +179,7 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
                   </div>
                 ) : (
                   <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "0.75rem", borderRadius: "8px", fontSize: "0.8rem", color: "var(--text-secondary)", textAlign: "center", fontWeight: 500 }}>
-                    🔒 Voter signatures restricted to approved residents aged 15-30.
+                    🔒 Voter signatures restricted to approved residents aged 15-30. Status: {isPending ? "Awaiting Audit Review" : !isAgeEligible ? `Age Ineligible (${age} yrs)` : "Awaiting Verification"}
                   </div>
                 )}
               </div>

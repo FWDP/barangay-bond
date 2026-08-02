@@ -19,6 +19,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   
   // Selected user for details drawer
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [adminNotes, setAdminNotes] = useState("");
 
   // Filter out the admin themselves
   const pendingUsers = dbUsers.filter((u) => u.role !== "admin" && u.verificationStatus !== "approved");
@@ -26,6 +27,45 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   
   const verifiedYouthCount = approvedUsers.filter(u => u.role === "youth").length;
   const verifiedSKCount = approvedUsers.filter(u => u.role === "sk").length;
+
+  const getDuplicateRisk = (user: UserProfile) => {
+    if (!user) return { level: "Low", text: "🟢 Low Risk", color: "badge-success", reasons: [] as string[] };
+    const others = dbUsers.filter(u => u.uid !== user.uid);
+    let highMatch = false;
+    let possibleMatch = false;
+    let matchReasons: string[] = [];
+
+    others.forEach(u => {
+      if (u.idNumber && u.idNumber === user.idNumber) {
+        highMatch = true;
+        matchReasons.push(`ID Number match: ${user.idNumber}`);
+      }
+      if (u.mobileNumber && u.mobileNumber === user.mobileNumber) {
+        highMatch = true;
+        matchReasons.push(`Mobile number match: ${user.mobileNumber}`);
+      }
+      if (u.walletAddress && u.walletAddress === user.walletAddress) {
+        highMatch = true;
+        matchReasons.push("Linked wallet match");
+      }
+      if (u.name.toLowerCase() === user.name.toLowerCase()) {
+        possibleMatch = true;
+        matchReasons.push(`Exact Name match: ${user.name}`);
+      }
+      if (u.address && user.address && u.address.toLowerCase() === user.address.toLowerCase()) {
+        possibleMatch = true;
+        matchReasons.push("Same address matches");
+      }
+    });
+
+    if (highMatch) {
+      return { level: "High", text: "🔴 High Risk Duplicate", color: "badge-danger", reasons: matchReasons };
+    }
+    if (possibleMatch) {
+      return { level: "Possible", text: "🟡 Possible Duplicate", color: "badge-warning", reasons: matchReasons };
+    }
+    return { level: "Low", text: "🟢 Low Risk", color: "badge-success", reasons: [] as string[] };
+  };
 
   const handleApprove = (user: UserProfile, role: "sk" | "youth") => {
     if (!user.walletAddress) {
@@ -41,7 +81,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
         txHash = await verifySKOfficial(adminAddress, user.walletAddress!, true, onStatusChange);
       }
 
-      await verifyUserInDb(user.uid, role, true);
+      await verifyUserInDb(user.uid, role, true, adminNotes || "Approved by Admin");
+      setAdminNotes("");
       setSelectedUser(null);
       return txHash;
     });
@@ -50,7 +91,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   const handleReject = async (uid: string) => {
     if (confirm("Are you sure you want to reject this verification request?")) {
       try {
-        await verifyUserInDb(uid, "youth", false);
+        await verifyUserInDb(uid, "youth", false, adminNotes || "Rejected by Admin");
+        setAdminNotes("");
         setSelectedUser(null);
       } catch (err: any) {
         alert("Failed to update user: " + err.message);
@@ -227,7 +269,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
             style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.2)", backdropFilter: "blur(4px)", zIndex: 199 }}
             onClick={() => setSelectedUser(null)}
           />
-          <aside className="identity-detail-drawer">
+          <aside className="identity-detail-drawer" style={{ display: "flex", flexDirection: "column" }}>
             <div className="drawer-header">
               <h3 style={{ fontWeight: 800, color: "var(--text-primary)" }}>Resident ID Audit</h3>
               <button 
@@ -238,13 +280,33 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
               </button>
             </div>
 
-            <div className="drawer-body">
+            <div className="drawer-body" style={{ flex: 1, overflowY: "auto", paddingRight: "0.5rem" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", padding: "1rem 0" }}>
                 <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#475569", border: "2px solid var(--role-accent)", fontSize: "1.5rem" }}>
                   {getInitials(selectedUser.name)}
                 </div>
                 <h4 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{selectedUser.name}</h4>
                 <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{selectedUser.email}</span>
+              </div>
+
+              {/* Duplicate Risk confidence indicator */}
+              <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>Duplicate Confidence Check</span>
+                {(() => {
+                  const risk = getDuplicateRisk(selectedUser);
+                  return (
+                    <>
+                      <span className={`badge ${risk.color}`} style={{ width: "max-content", padding: "0.3rem 0.6rem" }}>
+                        {risk.text}
+                      </span>
+                      {risk.reasons.length > 0 && (
+                        <div style={{ color: "var(--danger)", fontSize: "0.75rem", marginTop: "0.2rem" }}>
+                          Reasons: {risk.reasons.join(", ")}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -299,6 +361,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                   ) : (
                     <span style={{ color: "#ef4444", fontSize: "0.85rem", fontWeight: 600 }}>Resident hasn't linked a Stellar Wallet key.</span>
                   )}
+                </div>
+
+                {/* Audit timeline details */}
+                <div style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+                  <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>Audit Log Timeline</span>
+                  <div className="tx-timeline" style={{ marginTop: "0.8rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                      <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>1</span>
+                      <div>
+                        <strong>Account Registered</strong>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                          Created: {new Date(selectedUser.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                      <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>2</span>
+                      <div>
+                        <strong>Credentials Logged</strong>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                          ID: {selectedUser.idType.toUpperCase()} (Num: {selectedUser.idNumber})
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                      <span className={`badge ${selectedUser.walletAddress ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>3</span>
+                      <div>
+                        <strong>Wallet Binding</strong>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                          {selectedUser.walletAddress ? `Linked: ${truncateAddress(selectedUser.walletAddress)}` : "Awaiting signature"}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                      <span className={`badge ${selectedUser.verificationStatus === "approved" ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>4</span>
+                      <div>
+                        <strong>Identity Approval Status</strong>
+                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                          Status: {selectedUser.verificationStatus.toUpperCase()}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audit verification notes textarea */}
+                <div className="form-group" style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+                  <label>Audit Verification Notes / Remarks</label>
+                  <textarea
+                    className="form-control"
+                    rows={3}
+                    placeholder="Enter notes on credentials, blurry images, or LGU check updates..."
+                    value={adminNotes}
+                    onChange={(e) => setAdminNotes(e.target.value)}
+                  />
                 </div>
               </div>
             </div>

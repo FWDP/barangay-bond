@@ -27,6 +27,8 @@ export interface UserProfile {
   birthdate: string;
   barangayId: string;
   barangayName: string;
+  barangayMunicipality: string;
+  barangayProvince: string;
   role: "admin" | "sk" | "youth" | "viewer";
   requestedRole: "sk" | "youth" | "admin" | "viewer";
   walletAddress: string | null;
@@ -39,6 +41,9 @@ export interface UserProfile {
   idNumber: string;
   schoolName: string;
   idPhotoUrl: string;
+  verificationNotes?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
 }
 
 export interface Barangay {
@@ -63,6 +68,8 @@ interface AuthContextType {
     birthdate: string,
     barangayId: string,
     barangayName: string,
+    barangayMunicipality: string,
+    barangayProvince: string,
     desiredRole: "sk" | "youth" | "admin",
     mobileNumber: string,
     address: string,
@@ -77,7 +84,8 @@ interface AuthContextType {
   verifyUserInDb: (
     targetUid: string,
     role: "sk" | "youth",
-    isVerify: boolean
+    isVerify: boolean,
+    notes: string
   ) => Promise<void>;
   refreshUsersList: () => Promise<void>;
   refreshRoles: () => Promise<void>;
@@ -150,6 +158,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     birthdate: string,
     barangayId: string,
     barangayName: string,
+    barangayMunicipality: string,
+    barangayProvince: string,
     desiredRole: "sk" | "youth" | "admin",
     mobileNumber: string,
     address: string,
@@ -175,8 +185,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         password
       );
 
-      // Determine initial roles based on desired role and age check
-      let initialRole: "admin" | "sk" | "youth" | "viewer" = "viewer";
+      // Determine initial roles based on desired role
+      let initialRole: "admin" | "sk" | "youth" | "viewer" = desiredRole;
       let initialRequestedRole: "sk" | "youth" | "admin" | "viewer" = desiredRole;
       let initialVerified = false;
       let initialStatus: "pending" | "approved" | "rejected" = "pending";
@@ -186,21 +196,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         initialRequestedRole = "admin";
         initialVerified = true;
         initialStatus = "approved";
-      } else {
-        // Calculate age
-        const birthYear = new Date(birthdate).getFullYear();
-        const currentYear = new Date().getFullYear();
-        const age = currentYear - birthYear;
-        
-        if (age < 15 || age > 30) {
-          // Overaged or underaged viewer
-          initialRole = "viewer";
-          initialRequestedRole = "viewer";
-          initialVerified = true; // Auto-approved as permanent viewer
-          initialStatus = "approved";
-        }
       }
-      
+
       const newProfile: UserProfile = {
         uid: userCredential.user.uid,
         email,
@@ -208,6 +205,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         birthdate,
         barangayId,
         barangayName,
+        barangayMunicipality,
+        barangayProvince,
         role: initialRole,
         requestedRole: initialRequestedRole,
         walletAddress: null,
@@ -220,6 +219,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         idNumber,
         schoolName,
         idPhotoUrl,
+        verificationNotes: "",
+        verifiedBy: "",
+        verifiedAt: "",
       };
 
       // Save user profile to Firestore
@@ -278,7 +280,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const verifyUserInDb = async (
     targetUid: string,
     role: "sk" | "youth",
-    isVerify: boolean
+    isVerify: boolean,
+    notes: string
   ) => {
     if (!profile || profile.role !== "admin") {
       throw new Error("Only Barangay Admin can verify users");
@@ -289,6 +292,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       verified: isVerify,
       verificationStatus: isVerify ? "approved" : "rejected",
       role: isVerify ? role : "viewer",
+      verificationNotes: notes,
+      verifiedBy: profile.email || "admin",
+      verifiedAt: new Date().toISOString(),
     };
     
     await updateDoc(docRef, updates);

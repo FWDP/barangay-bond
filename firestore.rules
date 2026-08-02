@@ -27,22 +27,27 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == userId
         && request.resource.data.keys().hasAll([
           'uid', 'email', 'name', 'birthdate', 'barangayId', 
-          'barangayName', 'role', 'requestedRole', 'verified', 
-          'verificationStatus', 'createdAt', 'mobileNumber',
-          'address', 'idType', 'idNumber', 'schoolName', 'idPhotoUrl'
+          'barangayName', 'barangayMunicipality', 'barangayProvince',
+          'role', 'requestedRole', 'verified', 'verificationStatus', 'createdAt', 
+          'mobileNumber', 'address', 'idType', 'idNumber', 'schoolName', 'idPhotoUrl',
+          'verificationNotes', 'verifiedBy', 'verifiedAt'
         ])
         && request.resource.data.uid == userId
         && (
           request.resource.data.requestedRole == 'admin' ? 
             (request.resource.data.role == 'admin' && request.resource.data.verificationStatus == 'approved' && request.resource.data.verified == true) :
-            (request.resource.data.role == 'viewer' && request.resource.data.verificationStatus == 'pending' && request.resource.data.verified == false)
+            (request.resource.data.role == request.resource.data.requestedRole && request.resource.data.verificationStatus == 'pending' && request.resource.data.verified == false)
         );
       
       // Residents can only view their own profile. LGU Admins can view all profiles for verification audits
       allow read: if isOwner(userId) || isAdmin();
       
-      // Residents can update their wallet fields. LGU Admins can modify verification statuses
-      allow update: if isOwner(userId) || isAdmin();
+      // Residents can update their profiles (excluding roles, status pills, or LGU locations). Admins have full access.
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role', 'requestedRole', 'verified', 'verificationStatus', 
+        'barangayId', 'barangayName', 'barangayMunicipality', 'barangayProvince',
+        'verificationNotes', 'verifiedBy', 'verifiedAt'
+      ])) || isAdmin();
 
       // Only Admins can purge profiles
       allow delete: if isAdmin();

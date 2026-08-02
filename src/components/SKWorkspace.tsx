@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createProject, submitMilestoneProof } from "../transactions/transactions";
 import type { Project, TransactionStatus } from "../types";
 import { ChevronRight, ArrowLeft } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface SKWorkspaceProps {
   skAddress: string;
@@ -18,6 +19,9 @@ export const SKWorkspace: React.FC<SKWorkspaceProps> = ({
   projects,
   onExecute,
 }) => {
+  const { profile } = useAuth();
+  const isVerified = profile?.verified === true && profile?.verificationStatus === "approved";
+
   // Wizard States
   const [wizardStep, setWizardStep] = useState(1);
   const [projName, setProjName] = useState("");
@@ -123,16 +127,29 @@ export const SKWorkspace: React.FC<SKWorkspaceProps> = ({
     <div className="sk-workspace grid-2">
       {/* Create Project Wizard Panel */}
       <div className="panel-card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-          <h2 className="panel-title">Propose Community Escrow</h2>
-          <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--role-accent)", background: "var(--role-bg)", padding: "0.2rem 0.6rem", borderRadius: "6px" }}>
-            Step {wizardStep} of 3
-          </span>
-        </div>
+        {!isVerified ? (
+          <>
+            <h2 className="panel-title">Propose Community Escrow</h2>
+            <p className="panel-subtitle">Submit budget details to lock in native escrow.</p>
+            <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "1.5rem", borderRadius: "16px", fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 500, textAlign: "center" }}>
+              🔒 Escrow proposal wizard is locked. Proposing project budgets requires an approved LGU verification status.
+              <div style={{ marginTop: "0.5rem", color: "var(--warning)", fontWeight: 700 }}>Status: Awaiting Barangay Admin Review</div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+              <h2 className="panel-title">Propose Community Escrow</h2>
+              <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--role-accent)", background: "var(--role-bg)", padding: "0.2rem 0.6rem", borderRadius: "6px" }}>
+                Step {wizardStep} of 3
+              </span>
+            </div>
 
-        {createError && <p className="form-error-msg mb-4">{createError}</p>}
+            {createError && <p className="form-error-msg mb-4">{createError}</p>}
+          </>
+        )}
 
-        {wizardStep === 1 && (
+        {isVerified && wizardStep === 1 && (
           <div className="panel-form">
             <div className="form-group">
               <label>Project Initiative Title</label>
@@ -232,7 +249,12 @@ export const SKWorkspace: React.FC<SKWorkspaceProps> = ({
           <h2 className="panel-title">Upload Milestone Deliverables</h2>
           <p className="panel-subtitle">Upload completion receipts or documentation link to trigger youth audits.</p>
 
-          {projectsAwaitingProof.length === 0 ? (
+          {!isVerified ? (
+            <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "1.5rem", borderRadius: "16px", fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 500, textAlign: "center" }}>
+              🔒 Proof upload forms are locked. Uploading receipts requires verified SK status.
+              <div style={{ marginTop: "0.5rem", color: "var(--warning)", fontWeight: 700 }}>Status: Awaiting Barangay Admin Review</div>
+            </div>
+          ) : projectsAwaitingProof.length === 0 ? (
             <div className="empty-panel-state" style={{ padding: "2rem" }}>
               <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>No active allocations awaiting milestone proof submissions.</p>
             </div>
