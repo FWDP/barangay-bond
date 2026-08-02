@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: Check if user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper: Check if logged-in user is reading/writing their own document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper: Query the database to verify if the active user is an LGU Admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // ==========================================
+    // 👤 USERS COLLECTION
+    // ==========================================
+    match /users/{userId} {
+      // Residents can create their own profile document upon signup if fields match LGU requirements
+      allow create: if isAuthenticated() && request.auth.uid == userId
+        && request.resource.data.keys().hasAll([
+          'uid', 'email', 'name', 'birthdate', 'barangayId', 
+          'barangayName', 'role', 'requestedRole', 'verified', 
+          'verificationStatus', 'createdAt'
+        ])
+        && request.resource.data.uid == userId
+        && (
+          request.resource.data.requestedRole == 'admin' ? 
+            (request.resource.data.role == 'admin' && request.resource.data.verificationStatus == 'approved' && request.resource.data.verified == true) :
+            (request.resource.data.role == 'viewer' && request.resource.data.verificationStatus == 'pending' && request.resource.data.verified == false)
+        );
+      
+      // Residents can only view their own profile. LGU Admins can view all profiles for verification audits
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Residents can update their wallet fields. LGU Admins can modify verification statuses
+      allow update: if isOwner(userId) || isAdmin();
+
+      // Only Admins can purge profiles
+      allow delete: if isAdmin();
+    }
+
+    // ==========================================
+    // 🏢 BARANGAYS COLLECTION
+    // ==========================================
+    match /barangays/{barangayId} {
+      // Unauthenticated reads are allowed so visitors can see participating LGUs and select them in the sign-up list
+      allow read: if true;
+
+      // Proposing a new barangay requires LGU Admin authentication
+      allow create: if isAdmin();
+
+      // Approving or updating barangay records requires LGU Admin authentication
+      allow update, delete: if isAdmin();
+    }
+  }
+}
