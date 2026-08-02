@@ -24,7 +24,7 @@ export interface UserProfile {
   birthdate: string;
   barangay: string;
   role: "admin" | "sk" | "youth" | "viewer";
-  requestedRole: "sk" | "youth";
+  requestedRole: "sk" | "youth" | "admin" | "viewer";
   walletAddress: string | null;
   verified: boolean;
   verificationStatus: "pending" | "approved" | "rejected";
@@ -42,7 +42,7 @@ interface AuthContextType {
     name: string,
     birthdate: string,
     barangay: string,
-    desiredRole: "sk" | "youth"
+    desiredRole: "sk" | "youth" | "admin"
   ) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -66,55 +66,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [dbUsers, setDbUsers] = useState<UserProfile[]>([]);
 
-  // Automatically register a pre-configured admin for testing
-  const checkAdminSetup = async (uid: string, email: string) => {
-    // If the email is the pre-configured admin, make sure they have a Firestore role = admin
-    if (email === "admin@barangay.gov") {
-      const docRef = doc(db, "users", uid);
-      const docSnap = await getDoc(docRef);
-      if (!docSnap.exists()) {
-        const adminProfile: UserProfile = {
-          uid,
-          email,
-          name: "Barangay Admin",
-          birthdate: "1980-01-01",
-          barangay: "Central Barangay",
-          role: "admin",
-          requestedRole: "youth",
-          walletAddress: "GDV44D7S6FDUT35QUOVE7Q3BNY4TNFCUZQX7BN66OLLSZDZGT47GDGN7",
-          verified: true,
-          verificationStatus: "approved",
-          createdAt: new Date().toISOString(),
-        };
-        await setDoc(docRef, adminProfile);
-        return adminProfile;
-      }
-    }
-    return null;
-  };
-
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
         try {
           const docRef = doc(db, "users", currentUser.uid);
-          let docSnap = await getDoc(docRef);
+          const docSnap = await getDoc(docRef);
           
-          let userProfile = docSnap.exists()
+          const userProfile = docSnap.exists()
             ? (docSnap.data() as UserProfile)
             : null;
-
-          if (!userProfile) {
-            // Check if this is the default admin logging in for the first time
-            const createdAdmin = await checkAdminSetup(
-              currentUser.uid,
-              currentUser.email || ""
-            );
-            if (createdAdmin) {
-              userProfile = createdAdmin;
-            }
-          }
 
           setProfile(userProfile);
           
@@ -155,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     name: string,
     birthdate: string,
     barangay: string,
-    desiredRole: "sk" | "youth"
+    desiredRole: "sk" | "youth" | "admin"
   ) => {
     setLoading(true);
     try {
@@ -164,6 +126,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password
       );
+
+      // Determine initial roles based on desired role and age check
+      let initialRole: "admin" | "sk" | "youth" | "viewer" = "viewer";
+      let initialRequestedRole: "sk" | "youth" | "admin" | "viewer" = desiredRole;
+      let initialVerified = false;
+      let initialStatus: "pending" | "approved" | "rejected" = "pending";
+
+      if (desiredRole === "admin") {
+        initialRole = "admin";
+        initialRequestedRole = "admin";
+        initialVerified = true;
+        initialStatus = "approved";
+      } else {
+        // Calculate age
+        const birthYear = new Date(birthdate).getFullYear();
+        const currentYear = new Date().getFullYear();
+        const age = currentYear - birthYear;
+        
+        if (age < 15 || age > 30) {
+          // Overaged or underaged viewer
+          initialRole = "viewer";
+          initialRequestedRole = "viewer";
+          initialVerified = true; // Auto-approved as permanent viewer
+          initialStatus = "approved";
+        }
+      }
       
       const newProfile: UserProfile = {
         uid: userCredential.user.uid,
@@ -171,11 +159,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         name,
         birthdate,
         barangay,
-        role: "viewer", // Starts as viewer until verified by Admin
-        requestedRole: desiredRole,
+        role: initialRole,
+        requestedRole: initialRequestedRole,
         walletAddress: null,
-        verified: false,
-        verificationStatus: "pending",
+        verified: initialVerified,
+        verificationStatus: initialStatus,
         createdAt: new Date().toISOString(),
       };
 
@@ -196,9 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         email,
         password
       );
-      
-      // Look up default admin setup
-      await checkAdminSetup(userCredential.user.uid, email);
 
       const docSnap = await getDoc(doc(db, "users", userCredential.user.uid));
       if (docSnap.exists()) {

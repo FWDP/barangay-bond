@@ -18,7 +18,7 @@ type Tab = "transparency" | "youth" | "sk" | "admin";
 const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
   const [activeTab, setActiveTab] = useState<Tab>("transparency");
   const { projects, eventLogs, loading, xlmBalance, error: stateError } = useContractState();
-  const { address, connected } = useWallet();
+  const { address, connected, connect } = useWallet();
   const { profile, signOut } = useAuth();
 
   // Transaction execution tracking state
@@ -73,8 +73,15 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       case "youth":
         if (!connected) {
           return (
-            <div className="empty-panel-state">
-              <p>Stellar wallet connection required. Click "Connect Stellar Wallet" in the header.</p>
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
+              <h3>Stellar Wallet Required</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+              </p>
+              <button className="btn btn-primary" onClick={connect}>
+                Connect Stellar Wallet
+              </button>
             </div>
           );
         }
@@ -100,8 +107,15 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       case "sk":
         if (!connected) {
           return (
-            <div className="empty-panel-state">
-              <p>Stellar wallet connection required. Click "Connect Stellar Wallet" in the header.</p>
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
+              <h3>Stellar Wallet Required</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+              </p>
+              <button className="btn btn-primary" onClick={connect}>
+                Connect Stellar Wallet
+              </button>
             </div>
           );
         }
@@ -127,8 +141,15 @@ const MainLayout: React.FC<{ setViewState: (state: ViewState) => void }> = ({ se
       case "admin":
         if (!connected) {
           return (
-            <div className="empty-panel-state">
-              <p>Stellar wallet connection required. Click "Connect Stellar Wallet" in the header.</p>
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
+              <h3>Stellar Wallet Required</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                This dashboard requires on-chain interactions. Please connect Freighter, xBull, or Albedo.
+              </p>
+              <button className="btn btn-primary" onClick={connect}>
+                Connect Stellar Wallet
+              </button>
             </div>
           );
         }
@@ -269,6 +290,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   const [name, setName] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [barangay, setBarangay] = useState("Central Barangay");
+  const [desiredRole, setDesiredRole] = useState<"youth" | "sk" | "admin">("youth");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -283,14 +305,7 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
       if (isLogin) {
         await signIn(email, password);
       } else {
-        // Validate birthdate for youth residents (e.g. usually ages 15-30)
-        const birthYear = new Date(birthdate).getFullYear();
-        const currentYear = new Date().getFullYear();
-        const age = currentYear - birthYear;
-        if (age < 15 || age > 30) {
-          throw new Error("Youth resident registration requires age between 15 and 30 years.");
-        }
-        await signUp(email, password, name, birthdate, barangay, "youth");
+        await signUp(email, password, name, birthdate, barangay, desiredRole);
       }
       setViewState("dashboard");
     } catch (err: any) {
@@ -299,12 +314,6 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadQuickAdmin = () => {
-    setEmail("admin@barangay.gov");
-    setPassword("admin12345");
-    setIsLogin(true);
   };
 
   return (
@@ -355,6 +364,19 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
                   <option value="East Barangay">East Barangay</option>
                 </select>
               </div>
+
+              <div className="form-group">
+                <label>Desired Portal Role</label>
+                <select
+                  className="form-control"
+                  value={desiredRole}
+                  onChange={(e) => setDesiredRole(e.target.value as any)}
+                >
+                  <option value="youth">Youth Resident (Voter)</option>
+                  <option value="sk">SK Official (Creator)</option>
+                  <option value="admin">Barangay Admin (Platform Admin)</option>
+                </select>
+              </div>
             </>
           )}
 
@@ -394,11 +416,8 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
         </div>
 
         {isLogin && (
-          <div className="quick-login-section">
-            <div className="divider"><span>OR</span></div>
-            <button className="btn btn-outline-info w-100" onClick={loadQuickAdmin}>
-              Quick Load Barangay Admin Credentials
-            </button>
+          <div style={{ marginTop: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)", textAlign: "center" }}>
+            💡 Tip: You can register any email as a <strong>Barangay Admin</strong> to instantly access administrative approval tools.
           </div>
         )}
 
