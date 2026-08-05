@@ -106,7 +106,9 @@ impl BarangayBondContract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
-        env.storage().persistent().set(&DataKey::IsYouth(resident.clone()), &is_youth);
+        let key = DataKey::IsYouth(resident.clone());
+        env.storage().persistent().set(&key, &is_youth);
+        bump_persistent(&env, &key);
         
         ResidentVerifiedEvent {
             resident: resident.clone(),
@@ -118,7 +120,9 @@ impl BarangayBondContract {
         let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
         admin.require_auth();
 
-        env.storage().persistent().set(&DataKey::IsSK(official.clone()), &is_sk);
+        let key = DataKey::IsSK(official.clone());
+        env.storage().persistent().set(&key, &is_sk);
+        bump_persistent(&env, &key);
 
         SKOfficialVerifiedEvent {
             official: official.clone(),
@@ -129,7 +133,9 @@ impl BarangayBondContract {
     pub fn create_project(env: Env, sk_official: Address, name: String, budget: i128, description: String) -> u32 {
         sk_official.require_auth();
 
-        let is_sk = env.storage().persistent().get(&DataKey::IsSK(sk_official.clone())).unwrap_or(false);
+        let is_sk_key = DataKey::IsSK(sk_official.clone());
+        bump_persistent(&env, &is_sk_key);
+        let is_sk = env.storage().persistent().get(&is_sk_key).unwrap_or(false);
         if !is_sk {
             panic!("Caller is not a verified SK Official");
         }
@@ -170,7 +176,9 @@ impl BarangayBondContract {
             status: 0, // Phase1Released
         };
 
-        env.storage().persistent().set(&DataKey::Project(project_count), &new_project);
+        let proj_key = DataKey::Project(project_count);
+        env.storage().persistent().set(&proj_key, &new_project);
+        bump_persistent(&env, &proj_key);
         
         ProjectCreatedEvent {
             id: project_count,
@@ -184,7 +192,9 @@ impl BarangayBondContract {
     pub fn submit_milestone_proof(env: Env, sk_official: Address, project_id: u32, milestone_index: u32, proof_url: String) {
         sk_official.require_auth();
 
-        let mut project: Project = env.storage().persistent().get(&DataKey::Project(project_id)).expect("Project not found");
+        let proj_key = DataKey::Project(project_id);
+        bump_persistent(&env, &proj_key);
+        let mut project: Project = env.storage().persistent().get(&proj_key).expect("Project not found");
         if project.creator != sk_official {
             panic!("Caller is not the project creator");
         }
@@ -202,7 +212,7 @@ impl BarangayBondContract {
         project.milestone_1_status = 1; // PendingApproval
         project.status = 1; // Milestone1ProofUploaded
 
-        env.storage().persistent().set(&DataKey::Project(project_id), &project);
+        env.storage().persistent().set(&proj_key, &project);
         
         MilestoneProofSubmittedEvent {
             project_id,
@@ -214,12 +224,16 @@ impl BarangayBondContract {
     pub fn vote_milestone(env: Env, voter: Address, project_id: u32, milestone_index: u32, approve: bool) {
         voter.require_auth();
 
-        let is_youth = env.storage().persistent().get(&DataKey::IsYouth(voter.clone())).unwrap_or(false);
+        let voter_key = DataKey::IsYouth(voter.clone());
+        bump_persistent(&env, &voter_key);
+        let is_youth = env.storage().persistent().get(&voter_key).unwrap_or(false);
         if !is_youth {
             panic!("Voter is not a verified youth resident");
         }
 
-        let mut project: Project = env.storage().persistent().get(&DataKey::Project(project_id)).expect("Project not found");
+        let proj_key = DataKey::Project(project_id);
+        bump_persistent(&env, &proj_key);
+        let mut project: Project = env.storage().persistent().get(&proj_key).expect("Project not found");
         if milestone_index != 1 {
             panic!("Only voting on Milestone 1 is supported");
         }
@@ -227,7 +241,8 @@ impl BarangayBondContract {
             panic!("Milestone 1 is not pending approval");
         }
 
-        let has_voted = env.storage().persistent().get(&DataKey::Voted(project_id, milestone_index, voter.clone())).unwrap_or(false);
+        let vote_key = DataKey::Voted(project_id, milestone_index, voter.clone());
+        let has_voted = env.storage().persistent().get(&vote_key).unwrap_or(false);
         if has_voted {
             panic!("Already voted on this milestone");
         }
@@ -238,7 +253,8 @@ impl BarangayBondContract {
             project.milestone_1_votes_reject += 1;
         }
 
-        env.storage().persistent().set(&DataKey::Voted(project_id, milestone_index, voter.clone()), &true);
+        env.storage().persistent().set(&vote_key, &true);
+        bump_persistent(&env, &vote_key);
         
         MilestoneVotedEvent {
             project_id,
@@ -272,24 +288,62 @@ impl BarangayBondContract {
             }.publish(&env);
         }
 
-        env.storage().persistent().set(&DataKey::Project(project_id), &project);
+        env.storage().persistent().set(&proj_key, &project);
     }
 
     pub fn get_project(env: Env, project_id: u32) -> Project {
-        env.storage().persistent().get(&DataKey::Project(project_id)).expect("Project not found")
+        let key = DataKey::Project(project_id);
+        bump_persistent(&env, &key);
+        env.storage().persistent().get(&key).expect("Project not found")
     }
 
     pub fn is_resident_verified(env: Env, resident: Address) -> bool {
-        env.storage().persistent().get(&DataKey::IsYouth(resident)).unwrap_or(false)
+        let key = DataKey::IsYouth(resident);
+        bump_persistent(&env, &key);
+        env.storage().persistent().get(&key).unwrap_or(false)
     }
 
     pub fn is_sk_official(env: Env, official: Address) -> bool {
-        env.storage().persistent().get(&DataKey::IsSK(official)).unwrap_or(false)
+        let key = DataKey::IsSK(official);
+        bump_persistent(&env, &key);
+        env.storage().persistent().get(&key).unwrap_or(false)
     }
 
     pub fn get_project_count(env: Env) -> u32 {
         env.storage().instance().get(&DataKey::ProjectCount).unwrap_or(0)
     }
+
+    pub fn refund_project(env: Env, sk_official: Address, project_id: u32) {
+        sk_official.require_auth();
+
+        let proj_key = DataKey::Project(project_id);
+        bump_persistent(&env, &proj_key);
+
+        let mut project: Project = env.storage().persistent().get(&proj_key).expect("Project not found");
+        if project.creator != sk_official {
+            panic!("Caller is not the project creator");
+        }
+        if project.milestone_1_status != 3 {
+            panic!("Project milestone is not in Rejected state");
+        }
+        if project.status == 3 {
+            panic!("Project budget has already been refunded");
+        }
+
+        let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
+        let client = token::Client::new(&env, &token_addr);
+
+        // Refund the remaining 50% budget back to the creator
+        let remaining_budget = project.budget - (project.budget / 2);
+        client.transfer(&env.current_contract_address(), &sk_official, &remaining_budget);
+
+        project.status = 3; // Refunded
+        env.storage().persistent().set(&proj_key, &project);
+    }
+}
+
+fn bump_persistent(env: &Env, key: &DataKey) {
+    env.storage().persistent().extend_ttl(key, 100000, 500000);
 }
 
 mod test;

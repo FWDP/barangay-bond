@@ -2,25 +2,41 @@ import { nativeToScVal, Transaction, xdr } from "@stellar/stellar-sdk";
 import { buildWriteTransaction, rpcServer } from "../rpc/rpc";
 import { signTransaction } from "../wallet/wallet";
 import type { TransactionStatus } from "../types";
+import { logger } from "../utils/logger";
+import { DEBUG_MODE } from "../config/debug";
 
 /**
  * Polling helper to wait for transaction confirmation from the RPC server.
  */
 async function pollTransactionStatus(
   txHash: string,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  correlationId?: string
 ): Promise<string> {
   const maxAttempts = 30; // 30 seconds timeout
+  logger.blockchain(`Polling transaction status. Explorer: https://stellar.expert/explorer/testnet/tx/${txHash}`, "Soroban", { correlationId, transactionId: txHash });
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const txResult = await rpcServer.getTransaction(txHash);
+      logger.network(`Stellar RPC getTransaction call status: ${txResult.status}`, "StellarRPC", { correlationId, transactionId: txHash });
       
       if (txResult.status === "SUCCESS") {
+        logger.success(`Transaction confirmed in ledger! Explorer: https://stellar.expert/explorer/testnet/tx/${txHash}`, "Soroban", {
+          correlationId,
+          transactionId: txHash,
+          metadata: { txResult }
+        });
         onStatusChange("Confirmed", txHash);
         return txHash;
       }
       
       if (txResult.status === "FAILED") {
+        logger.error(`Transaction failed on-chain execution.`, "Soroban", {
+          correlationId,
+          transactionId: txHash,
+          metadata: { result: txResult }
+        });
         onStatusChange("Failed", txHash, "Transaction execution failed on-chain.");
         throw new Error("Transaction execution failed on-chain.");
       }
@@ -29,6 +45,7 @@ async function pollTransactionStatus(
       await new Promise((resolve) => setTimeout(resolve, 1000));
     } catch (err: any) {
       if (attempt === maxAttempts - 1) {
+        logger.error(`Transaction final check failed: ${err.message}`, "Soroban", { correlationId, transactionId: txHash });
         onStatusChange("Expired", txHash, "Transaction timed out.");
         throw err;
       }
@@ -49,13 +66,37 @@ async function executeContractWrite(
   args: xdr.ScVal[],
   onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
 ): Promise<string> {
+  const correlationId = `TX-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  const startTime = Date.now();
+  logger.blockchain(`Preparing Soroban transaction write: method = ${methodName}`, "Soroban", {
+    correlationId,
+    metadata: { userAddress, argsCount: args.length }
+  });
+
   onStatusChange("Pending");
 
   let preparedTx: Transaction;
   try {
     preparedTx = await buildWriteTransaction(userAddress, methodName, args);
+    if (DEBUG_MODE) {
+      logger.debug(`[Soroban Diagnostics] Simulation Details:
+- Method: ${methodName}
+- Target: ${userAddress}
+- Fee: ${preparedTx.fee} stroops
+- Passphrase: ${preparedTx.networkPassphrase}
+- Envelope XDR: ${preparedTx.toEnvelope().toXDR("base64")}
+      `, "Soroban", { correlationId });
+    }
+    logger.success(`Soroban write transaction successfully simulated & built. Footprint: ${preparedTx.fee} stroops`, "Soroban", {
+      correlationId,
+      durationMs: Date.now() - startTime,
+      metadata: { fee: preparedTx.fee, memo: preparedTx.memo }
+    });
   } catch (err: any) {
-    console.error("Simulation / Build error:", err);
+    logger.error(`Soroban transaction simulation/build failed: ${err.message}`, "Soroban", {
+      correlationId,
+      metadata: { error: err.toString() }
+    });
     onStatusChange("SimulationError", undefined, err.message || "Failed to simulate transaction.");
     throw err;
   }
@@ -63,9 +104,11 @@ async function executeContractWrite(
   let signedTxXdr: string;
   try {
     const rawXdr = preparedTx.toXDR();
+    logger.blockchain("Awaiting user signature request via linked wallet...", "Wallet", { correlationId });
     signedTxXdr = await signTransaction(rawXdr, userAddress);
+    logger.success("Transaction signed successfully by wallet extension.", "Wallet", { correlationId });
   } catch (err: any) {
-    console.error("Signing error:", err);
+    logger.warn(`Transaction signing canceled or failed: ${err.message}`, "Wallet", { correlationId });
     onStatusChange("WalletCancelled", undefined, err.message || "Transaction signing rejected by wallet.");
     throw err;
   }
@@ -75,20 +118,22 @@ async function executeContractWrite(
   try {
     const txObj = new Transaction(signedTxXdr, preparedTx.networkPassphrase);
     txHash = txObj.hash().toString("hex");
+    logger.network(`Submitting transaction to Stellar RPC endpoint. Hash: ${txHash}`, "StellarRPC", { correlationId, transactionId: txHash });
     const sendResponse = await rpcServer.sendTransaction(txObj);
 
     if (sendResponse.status === "ERROR") {
+      logger.error(`Stellar RPC submission failed. Error response: ${JSON.stringify(sendResponse)}`, "StellarRPC", { correlationId, transactionId: txHash });
       onStatusChange("Failed", txHash, "Transaction failed submission.");
       throw new Error(`Submission failed: ${JSON.stringify(sendResponse)}`);
     }
   } catch (err: any) {
-    console.error("Submission error:", err);
+    logger.error(`Submission network failure: ${err.message}`, "StellarRPC", { correlationId, transactionId: txHash });
     onStatusChange("NetworkError", txHash, err.message || "RPC submission error.");
     throw err;
   }
 
   // Poll until transaction is finalized
-  return await pollTransactionStatus(txHash, onStatusChange);
+  return await pollTransactionStatus(txHash, onStatusChange, correlationId);
 }
 
 /**
@@ -180,4 +225,19 @@ export async function voteMilestone(
     nativeToScVal(approve),
   ];
   return executeContractWrite(voterAddress, "vote_milestone", args, onStatusChange);
+}
+
+/**
+ * Refund the remaining project escrow funds back to the creator after rejection.
+ */
+export async function refundProject(
+  skAddress: string,
+  projectId: number,
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+): Promise<string> {
+  const args = [
+    nativeToScVal(skAddress, { type: "address" }),
+    nativeToScVal(projectId, { type: "u32" }),
+  ];
+  return executeContractWrite(skAddress, "refund_project", args, onStatusChange);
 }

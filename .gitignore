@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local Env Configuration
+.env
+.env.local
+.env.*.local
+
+# Agent/IDE Temporary Files
+.gemini/
+.agents/
+brain/
+scratch/
+.tempmediaStorage/

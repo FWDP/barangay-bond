@@ -20,7 +20,7 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
   const handleLink = async () => {
     if (address) {
       try {
-        await linkWallet(address);
+        await linkWallet(address, walletId || "freighter");
       } catch (err: any) {
         alert("Failed to link wallet: " + err.message);
       }

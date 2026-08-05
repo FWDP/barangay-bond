@@ -4,10 +4,11 @@ import { useAuth } from "../contexts/AuthContext";
 import type { UserProfile, Barangay } from "../contexts/AuthContext";
 import type { TransactionStatus } from "../types";
 import { db } from "../services/firebase";
-import { collection, query, getDocs, orderBy, addDoc } from "firebase/firestore";
+import { collection, query, getDocs, orderBy, doc, getDoc, updateDoc } from "firebase/firestore";
+import { getFuzzySimilarity } from "../services/gemini";
 import { 
-  ShieldCheck, UserCheck, X, AlertCircle, Award, Ban, 
-  UserX, FileText, CheckCircle2, History, Radio, RefreshCw 
+  ShieldCheck, UserCheck, X, AlertCircle, Ban, 
+  UserX, CheckCircle2, History, Radio, RefreshCw 
 } from "lucide-react";
 
 interface AdminPanelProps {
@@ -36,12 +37,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   
   // Dialog / Drawer states
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [aiVerification, setAiVerification] = useState<any | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
 
   // Audit Logs and Barangay States
   const [logs, setLogs] = useState<any[]>([]);
   const [allBarangays, setAllBarangays] = useState<Barangay[]>([]);
-  const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Form input states
   const [newBgyName, setNewBgyName] = useState("");
@@ -62,7 +63,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
 
   // Fetch audit records and LGUs
   const loadLogsAndBarangays = async () => {
-    setLoadingLogs(true);
     try {
       const list = await getAllBarangays();
       setAllBarangays(list);
@@ -76,8 +76,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
       setLogs(logList);
     } catch (err) {
       console.error("Failed to load LGU audit records:", err);
-    } finally {
-      setLoadingLogs(false);
     }
   };
 
@@ -112,15 +110,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
 
   const handleAssignAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAdminForAssign || !assignBarangayId) return;
+    if (!selectedUser || !assignBarangayId) return;
     const targetBgy = allBarangays.find(b => b.id === assignBarangayId);
     if (!targetBgy) return;
 
     try {
-      await approveBarangayAdmin(selectedAdminForAssign.uid, assignBarangayId, targetBgy.name);
-      alert(`Approved ${selectedAdminForAssign.name} as admin for Barangay ${targetBgy.name}.`);
-      setSelectedAdminForAssign(null);
+      await approveBarangayAdmin(selectedUser.uid, assignBarangayId, targetBgy.name);
+      alert(`Approved ${selectedUser.name} as admin for Barangay ${targetBgy.name}.`);
       setAssignBarangayId("");
+      handleCloseReview();
     } catch (err: any) {
       alert("Failed to assign Barangay Admin: " + err.message);
     }
@@ -142,24 +140,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     setSkError("");
     if (!selectedResidentForSK || !termStart || !termEnd) return;
 
-    try {
+    if (!selectedResidentForSK.walletAddress) {
+      setSkError("This resident has not linked their Stellar wallet address yet. They must bind their wallet before being promoted to SK Official.");
+      return;
+    }
+
+    onExecute(async (onStatusChange) => {
+      const txHash = await verifySKOfficial(adminAddress, selectedResidentForSK.walletAddress!, true, onStatusChange);
       await assignSKOfficial(selectedResidentForSK.uid, skPosition, termStart, termEnd);
-      alert(`Resident successfully promoted to active SK ${skPosition}.`);
       setSelectedResidentForSK(null);
       setTermStart("");
       setTermEnd("");
-    } catch (err: any) {
-      setSkError(err.message || "Failed to promote resident to SK position.");
-    }
+      return txHash;
+    });
   };
 
   const handleRevokeSK = async (uid: string) => {
+    const targetUser = dbUsers.find(u => u.uid === uid);
+    if (!targetUser) return;
+
     if (confirm("Are you sure you want to revoke this SK Official's term and restore them to resident status?")) {
-      try {
-        await revokeSKOfficial(uid);
-        alert("SK term revoked successfully.");
-      } catch (err: any) {
-        alert("Failed to revoke term: " + err.message);
+      if (targetUser.walletAddress) {
+        onExecute(async (onStatusChange) => {
+          const txHash = await verifySKOfficial(adminAddress, targetUser.walletAddress!, false, onStatusChange);
+          await revokeSKOfficial(uid);
+          alert("SK term revoked successfully.");
+          return txHash;
+        });
+      } else {
+        try {
+          await revokeSKOfficial(uid);
+          alert("SK term revoked successfully.");
+        } catch (err: any) {
+          alert("Failed to revoke term: " + err.message);
+        }
       }
     }
   };
@@ -167,10 +181,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   const handleOpenReview = async (user: UserProfile) => {
     setSelectedUser(user);
     setAdminNotes(user.verificationNotes || "");
+    setAiVerification(null);
     try {
       await lockProfileForReview(user.uid, true);
+      if (user.latestVerificationId) {
+        const docRef = doc(db, "ai_verifications", user.latestVerificationId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setAiVerification(docSnap.data());
+        }
+      }
     } catch (err) {
-      console.error("Failed to write lock:", err);
+      console.error("Failed to load AI verification details:", err);
     }
   };
 
@@ -183,6 +205,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
       }
     }
     setSelectedUser(null);
+    setAiVerification(null);
     setAdminNotes("");
   };
 
@@ -219,43 +242,82 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     }
   };
 
+  const handleRequestResubmission = async (uid: string) => {
+    if (confirm("Are you sure you want to request document resubmission? This will reset the resident profile state and clear their ID image to allow a fresh upload.")) {
+      try {
+        const userRef = doc(db, "users", uid);
+        await updateDoc(userRef, {
+          verificationStatus: "pending",
+          idPhotoUrl: "",
+          verificationNotes: adminNotes || "Resubmission requested: Please upload a clearer copy of your identity document."
+        });
+        alert("Resubmission request sent successfully.");
+        setAdminNotes("");
+        setSelectedUser(null);
+      } catch (err: any) {
+        alert("Failed to request resubmission: " + err.message);
+      }
+    }
+  };
+
   const getDuplicateRisk = (user: UserProfile) => {
-    if (!user) return { level: "Low", text: "🟢 Low Risk", color: "badge-success", reasons: [] as string[] };
+    if (!user) return { level: "Low", text: "🟢 No Duplicate Detected", color: "badge-success", reasons: [] as string[] };
     const others = dbUsers.filter(u => u.uid !== user.uid);
-    let highMatch = false;
-    let possibleMatch = false;
+    let isConfirmed = false;
+    let isHighConfidence = false;
+    let isPossible = false;
     let matchReasons: string[] = [];
 
     others.forEach(u => {
-      if (u.idNumber && u.idNumber === user.idNumber) {
-        highMatch = true;
-        matchReasons.push(`ID Number match: ${user.idNumber}`);
+      // 1. Confirmed Duplicate: exact critical unique identifier match
+      const idMatch = u.idNumber && user.idNumber && u.idNumber.trim().toLowerCase() === user.idNumber.trim().toLowerCase();
+      const walletMatch = u.walletAddress && user.walletAddress && u.walletAddress.trim().toLowerCase() === user.walletAddress.trim().toLowerCase();
+      const emailMatch = u.email && user.email && u.email.trim().toLowerCase() === user.email.trim().toLowerCase();
+      const studentMatch = u.schoolName && user.schoolName && u.studentNumber && user.studentNumber && 
+        u.schoolName.trim().toLowerCase() === user.schoolName.trim().toLowerCase() && 
+        u.studentNumber.trim().toLowerCase() === user.studentNumber.trim().toLowerCase();
+
+      if (idMatch || walletMatch || emailMatch || studentMatch) {
+        isConfirmed = true;
+        if (idMatch) matchReasons.push(`Confirmed duplicate ID Number: ${user.idNumber}`);
+        if (walletMatch) matchReasons.push("Confirmed duplicate Wallet address");
+        if (emailMatch) matchReasons.push(`Confirmed duplicate Email: ${user.email}`);
+        if (studentMatch) matchReasons.push(`Confirmed duplicate Student ID Number: ${user.studentNumber}`);
       }
-      if (u.mobileNumber && u.mobileNumber === user.mobileNumber) {
-        highMatch = true;
-        matchReasons.push(`Mobile number match: ${user.mobileNumber}`);
+
+      // 2. High Confidence Duplicate: name + birthdate, or mobile match, or address + birthdate
+      const nameMatch = u.name && user.name && u.name.trim().toLowerCase() === user.name.trim().toLowerCase();
+      const birthMatch = u.birthdate && user.birthdate && u.birthdate === user.birthdate;
+      const phoneMatch = u.mobileNumber && user.mobileNumber && u.mobileNumber.trim() === user.mobileNumber.trim();
+      const addressMatch = u.address && user.address && u.address.trim().toLowerCase() === user.address.trim().toLowerCase();
+
+      if ((nameMatch && birthMatch) || phoneMatch || (addressMatch && nameMatch)) {
+        isHighConfidence = true;
+        if (nameMatch && birthMatch) matchReasons.push("Matches name and birthdate");
+        if (phoneMatch) matchReasons.push(`Duplicate phone number: ${user.mobileNumber}`);
+        if (addressMatch && nameMatch) matchReasons.push("Matches name and address");
       }
-      if (u.walletAddress && u.walletAddress === user.walletAddress) {
-        highMatch = true;
-        matchReasons.push("Linked wallet match");
-      }
-      if (u.name.toLowerCase() === user.name.toLowerCase()) {
-        possibleMatch = true;
-        matchReasons.push(`Exact Name match: ${user.name}`);
-      }
-      if (u.address && user.address && u.address.toLowerCase() === user.address.toLowerCase()) {
-        possibleMatch = true;
-        matchReasons.push("Same address matches");
+
+      // 3. Possible Duplicate: fuzzy name match, or exact address, or exact name
+      const fuzzyNameSim = getFuzzySimilarity(user.name, u.name);
+      if (fuzzyNameSim >= 70 || nameMatch || addressMatch) {
+        isPossible = true;
+        if (fuzzyNameSim >= 70 && !nameMatch) matchReasons.push(`Fuzzy name match (${fuzzyNameSim}% similarity)`);
+        if (nameMatch && !(nameMatch && birthMatch)) matchReasons.push(`Matches exact name`);
+        if (addressMatch && !(addressMatch && nameMatch)) matchReasons.push(`Matches exact address`);
       }
     });
 
-    if (highMatch) {
-      return { level: "High", text: "🔴 High Risk Duplicate", color: "badge-danger", reasons: matchReasons };
+    if (isConfirmed) {
+      return { level: "Confirmed", text: "🔴 Confirmed Duplicate", color: "badge-danger", reasons: matchReasons };
     }
-    if (possibleMatch) {
-      return { level: "Possible", text: "🟡 Possible Duplicate", color: "badge-warning", reasons: matchReasons };
+    if (isHighConfidence) {
+      return { level: "High", text: "🟠 High Confidence Duplicate", color: "badge-warning", reasons: matchReasons };
     }
-    return { level: "Low", text: "🟢 Low Risk", color: "badge-success", reasons: [] as string[] };
+    if (isPossible) {
+      return { level: "Possible", text: "🟡 Possible Duplicate", color: "badge-info", reasons: matchReasons };
+    }
+    return { level: "Low", text: "🟢 No Duplicate Detected", color: "badge-success", reasons: [] as string[] };
   };
 
   const truncateAddress = (addr: string) => {
@@ -283,20 +345,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
 
   const pendingResidents = dbUsers.filter(
     u => u.role === "resident" && 
-    u.verificationStatus === "pending" && 
-    (isSysAdmin || u.barangayId === profile?.barangayId)
+    (u.verificationStatus === "pending" || u.verificationStatus === "ai_verified" || u.verificationStatus === "auto_rejected") && 
+    u.barangayId === profile?.barangayId
   );
 
   const activeResidents = dbUsers.filter(
     u => u.role === "resident" && 
     u.verificationStatus === "approved" && 
-    (isSysAdmin || u.barangayId === profile?.barangayId)
+    u.barangayId === profile?.barangayId
   );
 
   const activeSKOfficials = dbUsers.filter(
     u => u.role === "sk_official" && 
     u.status === "active" && 
-    (isSysAdmin || u.barangayId === profile?.barangayId)
+    u.barangayId === profile?.barangayId
   );
 
   return (
@@ -438,7 +500,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                             <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>{adm.email}</div>
                           </td>
                           <td>
-                            <button className="btn btn-sm btn-primary" onClick={() => setSelectedAdminForAssign(adm)}>
+                            <button className="btn btn-sm btn-primary" onClick={() => handleOpenReview(adm)}>
                               Review & Assign
                             </button>
                           </td>
@@ -446,28 +508,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                       ))}
                     </tbody>
                   </table>
-                </div>
-              )}
-
-              {/* Assign Barangay Admin Modal Drawer */}
-              {selectedAdminForAssign && (
-                <div style={{ borderTop: "2px solid var(--primary)", marginTop: "1.5rem", paddingTop: "1rem" }}>
-                  <h4>Assign Barangay Boundary for {selectedAdminForAssign.name}</h4>
-                  <form onSubmit={handleAssignAdmin} style={{ display: "flex", gap: "0.5rem", marginTop: "0.5rem" }}>
-                    <select 
-                      className="form-control flex-grow" 
-                      value={assignBarangayId} 
-                      onChange={e => setAssignBarangayId(e.target.value)} 
-                      required
-                    >
-                      <option value="">-- Select Active Barangay --</option>
-                      {allBarangays.filter(b => b.status === "approved").map(b => (
-                        <option key={b.id} value={b.id}>{b.name} ({b.municipality})</option>
-                      ))}
-                    </select>
-                    <button type="submit" className="btn btn-success">Approve & Assign</button>
-                    <button type="button" className="btn btn-outline-danger" onClick={() => setSelectedAdminForAssign(null)}>Cancel</button>
-                  </form>
                 </div>
               )}
             </div>
@@ -795,188 +835,379 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
       {/* ========================================================================= */}
       {/* 📁 RESIDENT VERIFICATION DRAWER */}
       {/* ========================================================================= */}
-      {selectedUser && (
-        <>
-          <div 
-            style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.2)", backdropFilter: "blur(4px)", zIndex: 199 }}
-            onClick={handleCloseReview}
-          />
-          <aside className="identity-detail-drawer" style={{ display: "flex", flexDirection: "column" }}>
-            <div className="drawer-header">
-              <h3 style={{ fontWeight: 800, color: "var(--text-primary)" }}>Resident ID Audit</h3>
-              <button 
-                onClick={handleCloseReview} 
-                style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Concurrent review warning locks */}
-            {selectedUser.currentlyReviewedBy && selectedUser.currentlyReviewedBy !== profile?.name && (
-              <div style={{ background: "#fffbeb", borderBottom: "1px solid #fef3c7", color: "#b45309", padding: "0.75rem 1.25rem", fontSize: "0.82rem", fontWeight: 600, display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                <AlertCircle size={14} /> WARNING: This profile is currently being reviewed by admin {selectedUser.currentlyReviewedBy}.
-              </div>
-            )}
-
-            <div className="drawer-body" style={{ flex: 1, overflowY: "auto", paddingRight: "0.5rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", padding: "1rem 0" }}>
-                <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#475569", border: "2px solid var(--role-accent)", fontSize: "1.5rem" }}>
-                  {getInitials(selectedUser.name)}
-                </div>
-                <h4 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{selectedUser.name}</h4>
-                <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{selectedUser.email}</span>
+      {selectedUser && (() => {
+        const isTargetAdmin = selectedUser.requestedRole === "barangay_admin" || selectedUser.role === "barangay_admin";
+        return (
+          <>
+            <div 
+              style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.2)", backdropFilter: "blur(4px)", zIndex: 199 }}
+              onClick={handleCloseReview}
+            />
+            <aside className="identity-detail-drawer" style={{ display: "flex", flexDirection: "column" }}>
+              <div className="drawer-header">
+                <h3 style={{ fontWeight: 800, color: "var(--text-primary)" }}>
+                  {isTargetAdmin ? "Barangay Admin ID Audit" : "Resident ID Audit"}
+                </h3>
+                <button 
+                  onClick={handleCloseReview} 
+                  style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}
+                >
+                  <X size={20} />
+                </button>
               </div>
 
-              {/* Duplicate Risk indicator */}
-              <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", borderRadius: "12px", padding: "1rem", marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>Duplicate Confidence Check</span>
-                {(() => {
-                  const risk = getDuplicateRisk(selectedUser);
-                  return (
-                    <>
-                      <span className={`badge ${risk.color}`} style={{ width: "max-content", padding: "0.3rem 0.6rem" }}>
-                        {risk.text}
-                      </span>
-                      {risk.reasons.length > 0 && (
-                        <div style={{ color: "var(--danger)", fontSize: "0.75rem", marginTop: "0.2rem" }}>
-                          Reasons: {risk.reasons.join(", ")}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
+              {/* Concurrent review warning locks */}
+              {selectedUser.currentlyReviewedBy && selectedUser.currentlyReviewedBy !== profile?.name && (
+                <div style={{ background: "#fffbeb", borderBottom: "1px solid #fef3c7", color: "#b45309", padding: "0.75rem 1.25rem", fontSize: "0.82rem", fontWeight: 600, display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <AlertCircle size={14} /> WARNING: This profile is currently being reviewed by admin {selectedUser.currentlyReviewedBy}.
+                </div>
+              )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Desired Role:</span>
-                  <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{selectedUser.requestedRole}</span>
+              <div className="drawer-body" style={{ flex: 1, overflowY: "auto", paddingRight: "0.5rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.5rem", padding: "1rem 0" }}>
+                  <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#475569", border: "2px solid var(--role-accent)", fontSize: "1.5rem" }}>
+                    {getInitials(selectedUser.name)}
+                  </div>
+                  <h4 style={{ fontSize: "1.2rem", fontWeight: 800 }}>{selectedUser.name}</h4>
+                  <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{selectedUser.email}</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Barangay Location:</span>
-                  <span style={{ fontWeight: 700 }}>{selectedUser.barangayName}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Birthdate / Age:</span>
-                  <span style={{ fontWeight: 700 }}>{selectedUser.birthdate} ({getAge(selectedUser.birthdate)} yrs)</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Mobile Number:</span>
-                  <span style={{ fontWeight: 700 }}>{selectedUser.mobileNumber || "N/A"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>Address:</span>
-                  <span style={{ fontWeight: 700 }}>{selectedUser.address || "N/A"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>ID Document Type:</span>
-                  <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{selectedUser.idType || "N/A"}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>ID Document Number:</span>
-                  <span style={{ fontWeight: 700 }}>{selectedUser.idNumber || "N/A"}</span>
-                </div>
-                {selectedUser.idType === "student" && selectedUser.schoolName && (
+
+                {/* --- AI Identity Verification Details --- */}
+                {aiVerification ? (
+                  <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", borderRadius: "16px", padding: "1.2rem", marginBottom: "1.5rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>AI verification report</span>
+                      {(() => {
+                        const confidence = aiVerification.confidence ?? (100 - (aiVerification.riskScore || 0));
+                        let color = "badge-success";
+                        let level = "Low Risk";
+                        if (confidence === 100 || (confidence >= 95 && confidence <= 99)) {
+                          color = "badge-success";
+                          level = "Low Risk";
+                        } else if (confidence >= 70 && confidence <= 94) {
+                          color = "badge-info";
+                          level = "Medium Risk";
+                        } else if (confidence >= 40 && confidence <= 69) {
+                          color = "badge-warning";
+                          level = "High Risk";
+                        } else {
+                          color = "badge-danger";
+                          level = "Critical Risk";
+                        }
+                        return (
+                          <span className={`badge ${color}`} style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem" }}>
+                            AI Confidence: {confidence}% ({level})
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    <div className="grid-2" style={{ gap: "0.75rem", background: "#ffffff", padding: "0.85rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                      <div style={{ fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Decision:</span>{" "}
+                        <strong style={{ 
+                          color: aiVerification.recommendation === "AUTO_ACCEPT" ? "#10b981" : aiVerification.recommendation === "AUTO_REJECT" ? "#ef4444" : "#f59e0b" 
+                        }}>
+                          {aiVerification.recommendation === "AUTO_ACCEPT" ? "AUTO ACCEPT" : aiVerification.recommendation === "AUTO_REJECT" ? "AUTO REJECTED" : "MANUAL REVIEW"}
+                        </strong>
+                      </div>
+                      <div style={{ fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Confidence:</span>{" "}
+                        <strong>{aiVerification.confidence}%</strong>
+                      </div>
+                      <div style={{ fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Document Type:</span>{" "}
+                        <strong>{aiVerification.documentType}</strong>
+                      </div>
+                      <div style={{ fontSize: "0.8rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Duplicates:</span>{" "}
+                        {(() => {
+                          const risk = getDuplicateRisk(selectedUser);
+                          return (
+                            <strong style={{ color: risk.level === "Confirmed" || risk.level === "High" ? "#ef4444" : risk.level === "Possible" ? "#f59e0b" : "#10b981" }}>
+                              {risk.text.replace("🟢 ", "").replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "")}
+                            </strong>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Fraud Indicators Checklist */}
+                    <div style={{ fontSize: "0.78rem", background: "rgba(0,0,0,0.01)", padding: "0.75rem", borderRadius: "10px", border: "1px solid #e2e8f0" }}>
+                      <span style={{ fontWeight: 700, display: "block", marginBottom: "0.4rem", color: "var(--text-primary)" }}>Safety & Tampering Analysis:</span>
+                      <div className="grid-2" style={{ gap: "0.4rem" }}>
+                        <div>👤 Face Present: <span style={{ color: aiVerification.faceDetected ? "#10b981" : "#ef4444", fontWeight: 700 }}>{aiVerification.faceDetected ? "YES" : "NO"}</span></div>
+                        <div>🛡️ Tampering: <span style={{ color: aiVerification.tamperingDetected ? "#ef4444" : "#10b981", fontWeight: 700 }}>{aiVerification.tamperingDetected ? "YES" : "NO"}</span></div>
+                        <div>📸 Screenshot: <span style={{ color: aiVerification.screenshotDetected ? "#ef4444" : "#10b981", fontWeight: 700 }}>{aiVerification.screenshotDetected ? "YES" : "NO"}</span></div>
+                        <div>🤖 AI-Generated: <span style={{ color: aiVerification.aiGeneratedDetected ? "#ef4444" : "#10b981", fontWeight: 700 }}>{aiVerification.aiGeneratedDetected ? "YES" : "NO"}</span></div>
+                      </div>
+                    </div>
+
+                    {/* OCR Verification Fields grid */}
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", fontSize: "0.75rem", borderCollapse: "collapse", textAlign: "left" }}>
+                        <thead>
+                          <tr style={{ borderBottom: "1px solid #cbd5e1", color: "var(--text-secondary)" }}>
+                            <th style={{ padding: "0.3rem" }}>Field Name</th>
+                            <th style={{ padding: "0.3rem" }}>Declared</th>
+                            <th style={{ padding: "0.3rem" }}>Extracted (OCR)</th>
+                            <th style={{ padding: "0.3rem" }}>Status</th>
+                            <th style={{ padding: "0.3rem" }}>Score</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(aiVerification.fieldMatches || {}).map(([key, match]: [string, any]) => {
+                            const statusText = match.status === "PASS" ? "Match" : match.status === "WARNING" ? "Partial Match" : "Mismatch";
+                            const statusColor = match.status === "PASS" ? "#10b981" : match.status === "WARNING" ? "#f59e0b" : "#ef4444";
+                            return (
+                              <tr key={key} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                                <td style={{ padding: "0.3rem", fontWeight: 600, textTransform: "capitalize" }}>{key}</td>
+                                <td style={{ padding: "0.3rem", color: "var(--text-secondary)" }} title={match.originalValue}>{match.originalValue || "N/A"}</td>
+                                <td style={{ padding: "0.3rem", color: "var(--text-primary)" }} title={match.extractedValue}>{match.extractedValue || "N/A"}</td>
+                                <td style={{ padding: "0.3rem" }}>
+                                  <span style={{ color: statusColor, fontWeight: 700 }}>
+                                    {statusText}
+                                  </span>
+                                </td>
+                                <td style={{ padding: "0.3rem", fontWeight: 600 }}>{match.confidence}%</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Explainable AI reasons */}
+                    <div style={{ background: "#f8fafc", padding: "0.75rem 1rem", borderRadius: "12px", border: "1px solid #cbd5e1" }}>
+                      <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: "0.3rem" }}>AI Verification Reasons:</span>
+                      <ul style={{ paddingLeft: "1.2rem", margin: 0, fontSize: "0.75rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                        {aiVerification.reasons.map((reason: string, idx: number) => (
+                          <li key={idx}>{reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: "rgba(245, 158, 11, 0.05)", border: "1px solid #f59e0b", borderRadius: "12px", padding: "1rem", marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                      <AlertCircle size={16} style={{ color: "#d97706" }} />
+                      <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#b45309" }}>AI Verification Log Offline</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                      {selectedUser.verificationNotes || "Gemini AI analysis details are missing for this user. Auditing resident document status via manual review."}
+                    </p>
+                    {/* Local Duplicate checks */}
+                    <div style={{ marginTop: "0.5rem", borderTop: "1px solid #fed7aa", paddingTop: "0.5rem" }}>
+                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>Local Database Scan:</span>
+                      {(() => {
+                        const risk = getDuplicateRisk(selectedUser);
+                        return (
+                          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: "0.25rem" }}>
+                            <span className={`badge ${risk.color}`} style={{ padding: "0.15rem 0.4rem", fontSize: "0.68rem" }}>{risk.text}</span>
+                            {risk.reasons.length > 0 && <span style={{ fontSize: "0.68rem", color: "var(--danger)" }}>({risk.reasons[0]})</span>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
-                    <span style={{ color: "var(--text-secondary)" }}>School/University:</span>
-                    <span style={{ fontWeight: 700 }}>{selectedUser.schoolName}</span>
+                    <span style={{ color: "var(--text-secondary)" }}>Desired Role:</span>
+                    <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{selectedUser.requestedRole}</span>
                   </div>
-                )}
-                {selectedUser.idPhotoUrl && selectedUser.idPhotoUrl !== "N/A" && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                    <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Uploaded ID Document Photo:</span>
-                    <div style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "100%", height: "160px" }}>
-                      <img src={selectedUser.idPhotoUrl} alt="LGU Verified ID" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {!isTargetAdmin && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>Barangay Location:</span>
+                      <span style={{ fontWeight: 700 }}>{selectedUser.barangayName}</span>
                     </div>
-                  </div>
-                )}
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                  <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Stellar Public Address:</span>
-                  {selectedUser.walletAddress ? (
-                    <code style={{ background: "#f8fafc", padding: "0.5rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", fontFamily: "monospace", wordBreak: "break-all" }}>
-                      {selectedUser.walletAddress}
-                    </code>
-                  ) : (
-                    <span style={{ color: "#ef4444", fontSize: "0.85rem", fontWeight: 600 }}>Resident hasn't linked a Stellar Wallet key.</span>
                   )}
-                </div>
+                  {isTargetAdmin && (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Professional Occupation:</span>
+                        <span style={{ fontWeight: 700 }}>{selectedUser.professionalInfo || "N/A"}</span>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                        <span style={{ color: "var(--text-secondary)" }}>Application Purpose:</span>
+                        <span style={{ fontWeight: 500, fontStyle: "italic", fontSize: "0.85rem", marginTop: "0.1rem" }}>"{selectedUser.adminReason || "N/A"}"</span>
+                      </div>
+                    </>
+                  )}
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Birthdate / Age:</span>
+                    <span style={{ fontWeight: 700 }}>{selectedUser.birthdate} ({getAge(selectedUser.birthdate)} yrs)</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Mobile Number:</span>
+                    <span style={{ fontWeight: 700 }}>{selectedUser.mobileNumber || "N/A"}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>Address:</span>
+                    <span style={{ fontWeight: 700 }}>{selectedUser.address || "N/A"}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>ID Document Type:</span>
+                    <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{selectedUser.idType || "N/A"}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                    <span style={{ color: "var(--text-secondary)" }}>ID Document Number:</span>
+                    <span style={{ fontWeight: 700 }}>{selectedUser.idNumber || "N/A"}</span>
+                  </div>
+                  {selectedUser.idType === "student" && selectedUser.schoolName && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", borderBottom: "1px solid #f1f5f9", paddingBottom: "0.5rem" }}>
+                      <span style={{ color: "var(--text-secondary)" }}>School/University:</span>
+                      <span style={{ fontWeight: 700 }}>{selectedUser.schoolName}</span>
+                    </div>
+                  )}
+                  {selectedUser.idPhotoUrl && selectedUser.idPhotoUrl !== "N/A" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Uploaded ID Document Photo:</span>
+                      <div style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "100%", height: "160px" }}>
+                        <img src={selectedUser.idPhotoUrl} alt="LGU Verified ID" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    </div>
+                  )}
+                  {isTargetAdmin && selectedUser.selfiePhotoUrl && selectedUser.selfiePhotoUrl !== "N/A" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "1rem" }}>
+                      <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Uploaded Selfie with ID Photo:</span>
+                      <div style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "100%", height: "160px" }}>
+                        <img src={selectedUser.selfiePhotoUrl} alt="Selfie Verification" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                    <span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Stellar Public Address:</span>
+                    {selectedUser.walletAddress ? (
+                      <code style={{ background: "#f8fafc", padding: "0.5rem", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.85rem", fontFamily: "monospace", wordBreak: "break-all" }}>
+                        {selectedUser.walletAddress}
+                      </code>
+                    ) : (
+                      <span style={{ color: "#ef4444", fontSize: "0.85rem", fontWeight: 600 }}>Applicant hasn't linked a Stellar Wallet key.</span>
+                    )}
+                  </div>
 
-                {/* Audit timeline details */}
-                <div style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>Audit Log Timeline</span>
-                  <div className="tx-timeline" style={{ marginTop: "0.8rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
-                      <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>1</span>
-                      <div>
-                        <strong>Account Registered</strong>
-                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
-                          Created: {new Date(selectedUser.createdAt).toLocaleDateString()}
+                  {/* Audit timeline details */}
+                  <div style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+                    <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "var(--text-secondary)" }}>Audit Log Timeline</span>
+                    <div className="tx-timeline" style={{ marginTop: "0.8rem", display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                      <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                        <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>1</span>
+                        <div>
+                          <strong>Account Registered</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                            Created: {new Date(selectedUser.createdAt).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
-                      <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>2</span>
-                      <div>
-                        <strong>Credentials Logged</strong>
-                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
-                          ID: {selectedUser.idType.toUpperCase()} (Num: {selectedUser.idNumber})
+                      <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                        <span className="badge badge-success" style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>2</span>
+                        <div>
+                          <strong>Credentials Logged</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                            ID: {selectedUser.idType.toUpperCase()} (Num: {selectedUser.idNumber})
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
-                      <span className={`badge ${selectedUser.walletAddress ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>3</span>
-                      <div>
-                        <strong>Wallet Binding</strong>
-                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
-                          {selectedUser.walletAddress ? `Linked: ${truncateAddress(selectedUser.walletAddress)}` : "Awaiting signature"}
+                      <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                        <span className={`badge ${selectedUser.walletAddress ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>3</span>
+                        <div>
+                          <strong>Wallet Binding</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                            {selectedUser.walletAddress ? `Linked: ${truncateAddress(selectedUser.walletAddress)}` : "Awaiting signature"}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
-                      <span className={`badge ${selectedUser.verificationStatus === "approved" ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>4</span>
-                      <div>
-                        <strong>Identity Approval Status</strong>
-                        <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
-                          Status: {selectedUser.verificationStatus.toUpperCase()}
+                      <div style={{ display: "flex", gap: "0.75rem", fontSize: "0.82rem" }}>
+                        <span className={`badge ${selectedUser.verificationStatus === "approved" ? "badge-success" : "badge-warning"}`} style={{ height: "20px", width: "20px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}>4</span>
+                        <div>
+                          <strong>Identity Approval Status</strong>
+                          <div style={{ color: "var(--text-secondary)", fontSize: "0.75rem", marginTop: "0.1rem" }}>
+                            Status: {selectedUser.verificationStatus.toUpperCase()}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Audit verification notes textarea */}
-                <div className="form-group" style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
-                  <label>Audit Verification Notes / Remarks</label>
-                  <textarea
-                    className="form-control"
-                    rows={3}
-                    placeholder="Enter notes on credentials, blurry images, or LGU check updates..."
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                  />
+                  {/* Audit verification notes textarea */}
+                  <div className="form-group" style={{ marginTop: "1rem", borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+                    <label>Audit Verification Notes / Remarks</label>
+                    <textarea
+                      className="form-control"
+                      rows={3}
+                      placeholder="Enter notes on credentials, blurry images, or LGU check updates..."
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="drawer-footer">
-              <button 
-                className="btn btn-outline-danger flex-grow"
-                onClick={() => handleReject(selectedUser.uid)}
-              >
-                Reject Request
-              </button>
-              <button 
-                className="btn btn-primary flex-grow"
-                disabled={!selectedUser.walletAddress}
-                onClick={() => handleApprove(selectedUser, selectedUser.requestedRole === "sk_official" ? "sk" : "youth")}
-              >
-                Approve & Verify
-              </button>
-            </div>
-          </aside>
-        </>
-      )}
+              <div className="drawer-footer" style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
+                {isTargetAdmin ? (
+                  <>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", width: "100%", marginBottom: "0.5rem" }}>
+                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)" }}>ASSIGN BARANGAY JURISDICTION BOUNDARY:</label>
+                      <select 
+                        className="form-control" 
+                        value={assignBarangayId} 
+                        onChange={e => setAssignBarangayId(e.target.value)} 
+                        required
+                      >
+                        <option value="">-- Choose Active Barangay --</option>
+                        {allBarangays.filter(b => b.status === "approved").map(b => (
+                          <option key={b.id} value={b.id}>{b.name} ({b.municipality})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                      <button 
+                        className="btn btn-outline-danger flex-grow"
+                        onClick={() => handleReject(selectedUser.uid)}
+                      >
+                        Reject Application
+                      </button>
+                      <button 
+                        className="btn btn-primary flex-grow"
+                        disabled={!assignBarangayId}
+                        onClick={handleAssignAdmin}
+                      >
+                        Approve & Assign
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                      <button 
+                        className="btn btn-outline-navy flex-grow"
+                        onClick={() => handleRequestResubmission(selectedUser.uid)}
+                      >
+                        Request Resubmission
+                      </button>
+                      <button 
+                        className="btn btn-outline-danger flex-grow"
+                        onClick={() => handleReject(selectedUser.uid)}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                    <button 
+                      className="btn btn-primary w-100"
+                      disabled={!selectedUser.walletAddress}
+                      onClick={() => handleApprove(selectedUser, "youth")}
+                    >
+                      Approve & Verify Resident
+                  </button>
+                  </>
+                )}
+              </div>
+            </aside>
+          </>
+        );
+      })()}
     </div>
   );
 };

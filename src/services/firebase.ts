@@ -2,15 +2,15 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Config credentials provided by user
+// Config credentials loaded from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCoHpfd47Uul4D2saRfzZwNRl-UCFWxgno",
-  authDomain: "tugma-8514e.firebaseapp.com",
-  projectId: "tugma-8514e",
-  storageBucket: "tugma-8514e.firebasestorage.app",
-  messagingSenderId: "578517024363",
-  appId: "1:578517024363:web:5ed04cf894eb1e73f4bb2e",
-  measurementId: "G-874ELHD8J6"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase

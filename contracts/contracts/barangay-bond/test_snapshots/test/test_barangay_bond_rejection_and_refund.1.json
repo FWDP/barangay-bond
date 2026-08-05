@@ -92,9 +92,6 @@
         }
       ]
     ],
-    [],
-    [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFCT4",
@@ -117,7 +114,6 @@
         }
       ]
     ],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
@@ -131,13 +127,13 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
                 },
                 {
-                  "string": "Community Center WiFi"
+                  "string": "Community Gym Refurbish"
                 },
                 {
                   "i128": "400"
                 },
                 {
-                  "string": "Free high-speed WiFi for youth"
+                  "string": "Buying basketball hoops"
                 }
               ]
             }
@@ -169,8 +165,6 @@
     ],
     [],
     [],
-    [],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
@@ -190,7 +184,7 @@
                   "u32": 1
                 },
                 {
-                  "string": "https://ipfs.io/ipfs/QmSomeHash"
+                  "string": "https://ipfs.io/ipfs/GymProof"
                 }
               ]
             }
@@ -199,7 +193,6 @@
         }
       ]
     ],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMDR4",
@@ -219,7 +212,7 @@
                   "u32": 1
                 },
                 {
-                  "bool": true
+                  "bool": false
                 }
               ]
             }
@@ -228,7 +221,6 @@
         }
       ]
     ],
-    [],
     [
       [
         "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOLZM",
@@ -248,7 +240,30 @@
                   "u32": 1
                 },
                 {
-                  "bool": true
+                  "bool": false
+                }
+              ]
+            }
+          },
+          "sub_invocations": []
+        }
+      ]
+    ],
+    [],
+    [
+      [
+        "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+        {
+          "function": {
+            "contract_fn": {
+              "contract_address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAITA4",
+              "function_name": "refund_project",
+              "args": [
+                {
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM"
+                },
+                {
+                  "u32": 1
                 }
               ]
             }
@@ -514,7 +529,7 @@
                       "symbol": "description"
                     },
                     "val": {
-                      "string": "Free high-speed WiFi for youth"
+                      "string": "Buying basketball hoops"
                     }
                   },
                   {
@@ -530,7 +545,7 @@
                       "symbol": "milestone_1_proof"
                     },
                     "val": {
-                      "string": "https://ipfs.io/ipfs/QmSomeHash"
+                      "string": "https://ipfs.io/ipfs/GymProof"
                     }
                   },
                   {
@@ -538,7 +553,7 @@
                       "symbol": "milestone_1_status"
                     },
                     "val": {
-                      "u32": 2
+                      "u32": 3
                     }
                   },
                   {
@@ -546,7 +561,7 @@
                       "symbol": "milestone_1_votes_approve"
                     },
                     "val": {
-                      "u32": 2
+                      "u32": 0
                     }
                   },
                   {
@@ -554,7 +569,7 @@
                       "symbol": "milestone_1_votes_reject"
                     },
                     "val": {
-                      "u32": 0
+                      "u32": 2
                     }
                   },
                   {
@@ -594,7 +609,7 @@
                       "symbol": "name"
                     },
                     "val": {
-                      "string": "Community Center WiFi"
+                      "string": "Community Gym Refurbish"
                     }
                   },
                   {
@@ -602,7 +617,7 @@
                       "symbol": "status"
                     },
                     "val": {
-                      "u32": 2
+                      "u32": 3
                     }
                   }
                 ]
@@ -738,6 +753,26 @@
           "ext": "v0"
         },
         "live_until": 4095
+      },
+      {
+        "entry": {
+          "last_modified_ledger_seq": 0,
+          "data": {
+            "contract_data": {
+              "ext": "v0",
+              "contract": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAK3IM",
+              "key": {
+                "ledger_key_nonce": {
+                  "nonce": "1194852393571756375"
+                }
+              },
+              "durability": "temporary",
+              "val": "void"
+            }
+          },
+          "ext": "v0"
+        },
+        "live_until": 6311999
       },
       {
         "entry": {

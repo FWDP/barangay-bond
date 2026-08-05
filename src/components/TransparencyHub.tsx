@@ -59,7 +59,7 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
 
   return (
     <div className="transparency-hub">
-      {/* Dynamic LGU Statistics Row */}
+      {/* Dynamic SK Governance Statistics Row */}
       <div className="stats-row grid-3 mb-4">
         <div className="stats-card">
           <span className="stats-title" style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -173,7 +173,7 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
         <div className="panel-card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "1.5rem" }}>
             <div>
-              <h2 className="panel-title">LGU Project Catalog</h2>
+              <h2 className="panel-title">SK Project Catalog</h2>
               <p className="panel-subtitle" style={{ margin: 0 }}>Escrow tracking ledger of all community projects.</p>
             </div>
             {/* Filters */}

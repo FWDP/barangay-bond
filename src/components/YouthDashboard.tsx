@@ -44,7 +44,14 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
   const isAgeEligible = age >= 15 && age <= 30;
   const isVerified = profile?.verified === true && profile?.verificationStatus === "approved";
   const isPending = profile?.verificationStatus === "pending";
-  const isEligibleVoter = profile?.role === "youth" && isVerified && isAgeEligible;
+  const isEligibleVoter = 
+    !!profile && 
+    profile.role === "resident" && 
+    profile.verified === true && 
+    profile.verificationStatus === "approved" && 
+    profile.status === "active" && 
+    !!profile.walletAddress && 
+    isAgeEligible;
 
   return (
     <div className="youth-dashboard" style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>

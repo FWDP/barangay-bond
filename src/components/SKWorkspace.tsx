@@ -20,7 +20,12 @@ export const SKWorkspace: React.FC<SKWorkspaceProps> = ({
   onExecute,
 }) => {
   const { profile } = useAuth();
-  const isVerified = profile?.verified === true && profile?.verificationStatus === "approved";
+  const isVerified = 
+    !!profile && 
+    profile.verified === true && 
+    profile.verificationStatus === "approved" && 
+    profile.status === "active" && 
+    !!profile.walletAddress;
 
   // Wizard States
   const [wizardStep, setWizardStep] = useState(1);
@@ -132,7 +137,7 @@ export const SKWorkspace: React.FC<SKWorkspaceProps> = ({
             <h2 className="panel-title">Propose Community Escrow</h2>
             <p className="panel-subtitle">Submit budget details to lock in native escrow.</p>
             <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "1.5rem", borderRadius: "16px", fontSize: "0.9rem", color: "var(--text-secondary)", fontWeight: 500, textAlign: "center" }}>
-              🔒 Escrow proposal wizard is locked. Proposing project budgets requires an approved LGU verification status.
+              🔒 Escrow proposal wizard is locked. Proposing project budgets requires an approved Barangay verification status.
               <div style={{ marginTop: "0.5rem", color: "var(--warning)", fontWeight: 700 }}>Status: Awaiting Barangay Admin Review</div>
             </div>
           </>

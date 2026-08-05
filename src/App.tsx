@@ -12,13 +12,19 @@ import { TransactionLifecycleModal } from "./components/TransactionLifecycleModa
 import type { TransactionStatus } from "./types";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { 
-  Lock, Camera, CheckSquare, ShieldCheck, Users, UserCheck, Menu, X, AlertTriangle, Info, LogOut, Layout, BookOpen, Settings,
-  ChevronDown, ChevronRight, Activity
+  Lock, Camera, CheckSquare, ShieldCheck, UserCheck, Menu, X, AlertTriangle, Info, LogOut, Layout, BookOpen, Settings,
+  ChevronDown, ChevronRight, Activity, Bell, User
 } from "lucide-react";
+import { db } from "./services/firebase";
+import { collection, query, onSnapshot, doc, updateDoc, orderBy } from "firebase/firestore";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { compressImage } from "./utils/imageCompressor";
+import { DevConsole } from "./components/DevConsole";
+import { logger } from "./utils/logger";
 
 type ViewState = "landing" | "auth" | "dashboard";
 type RoleType = "system_admin" | "barangay_admin" | "sk_official" | "resident" | "viewer";
-type MenuKey = "transparency" | "voters" | "projects" | "propose" | "verify" | "system" | "logs";
+type MenuKey = "dashboard" | "projects" | "voting" | "notifications" | "profile" | "admin";
 
 interface MainLayoutProps {
   setViewState: (state: ViewState) => void;
@@ -26,10 +32,233 @@ interface MainLayoutProps {
   setIsGuest: (val: boolean) => void;
 }
 
+interface NotificationsPanelProps {
+  profile: any;
+}
+
+export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ profile }) => {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.uid) return;
+
+    const q = query(
+      collection(db, "notifications"),
+      orderBy("timestamp", "desc")
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.targetUid === profile.uid || (data.barangayId && data.barangayId === profile.barangayId)) {
+          list.push({ id: docSnap.id, ...data });
+        }
+      });
+      setNotifications(list);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [profile]);
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      const docRef = doc(db, "notifications", id);
+      await updateDoc(docRef, { read: true });
+    } catch (err: any) {
+      console.error("Failed to mark notification as read:", err);
+    }
+  };
+
+  return (
+    <div className="panel-card">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
+        <h2 className="panel-title" style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Bell size={24} style={{ color: "var(--primary)" }} /> Notifications Catalog
+        </h2>
+        <span className="badge badge-success">
+          {notifications.filter((n) => !n.read).length} New
+        </span>
+      </div>
+
+      {loading ? (
+        <LoadingSpinner size="md" label="Loading alerts..." />
+      ) : notifications.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)" }}>
+          <Bell size={48} style={{ opacity: 0.2, marginBottom: "1rem" }} />
+          <p>No notifications found for your profile at this time.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {notifications.map((n) => (
+            <div 
+              key={n.id} 
+              style={{ 
+                background: n.read ? "transparent" : "rgba(37, 99, 235, 0.03)", 
+                border: `1px solid ${n.read ? "var(--border-glass)" : "rgba(37, 99, 235, 0.15)"}`,
+                borderRadius: "16px", 
+                padding: "1.25rem", 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "flex-start",
+                transition: "var(--transition-smooth)"
+              }}
+            >
+              <div style={{ flex: 1, paddingRight: "1rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>{n.title}</h4>
+                  {!n.read && <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "var(--primary)" }}></span>}
+                </div>
+                <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                  {n.message}
+                </p>
+                <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.5rem", display: "block" }}>
+                  {n.timestamp ? new Date(n.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                </span>
+              </div>
+              {!n.read && (
+                <button 
+                  className="btn btn-outline-navy btn-sm" 
+                  onClick={() => handleMarkAsRead(n.id)}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  Mark Read
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface ProfileSettingsPanelProps {
+  profile: any;
+  xlmBalance: string;
+}
+
+export const ProfileSettingsPanel: React.FC<ProfileSettingsPanelProps> = ({ profile, xlmBalance }) => {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+      {/* Wallet Management Section */}
+      <div className="panel-card">
+        <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+          <Activity size={24} style={{ color: "var(--primary)" }} /> Stellar Ledger Integration
+        </h2>
+        <p className="panel-subtitle" style={{ marginBottom: "1.5rem" }}>
+          Link your Stellar Testnet wallet to authorize governance voting signatures or milestone escrows.
+        </p>
+
+        <WalletSelector balance={xlmBalance} />
+
+        {profile?.walletAddress && (
+          <div style={{ marginTop: "1.5rem", background: "rgba(22, 163, 74, 0.03)", border: "1px solid rgba(22, 163, 74, 0.15)", borderRadius: "16px", padding: "1.25rem" }}>
+            <h4 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "var(--success)", display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <ShieldCheck size={18} /> Profile Wallet Locked
+            </h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.85rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Linked Provider:</span>
+                <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{profile.walletProvider || "Freighter"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Linked Date:</span>
+                <span style={{ fontWeight: 700 }}>
+                  {profile.walletLinkedAt ? new Date(profile.walletLinkedAt).toLocaleDateString() : "N/A"}
+                </span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--text-secondary)" }}>Verification:</span>
+                <span style={{ fontWeight: 700, color: "var(--success)" }}>SECURED & BOUND</span>
+              </div>
+            </div>
+            <p style={{ margin: "0.75rem 0 0 0", fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+              ⚠️ **Security Rule:** To prevent double-voting or Sybil exploits, you are restricted to one active Stellar wallet address. To change it, submit a verification appeal to your Barangay Admin.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Profile Information Section */}
+      <div className="panel-card">
+        <h2 className="panel-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.5rem" }}>
+          <User size={24} style={{ color: "var(--primary)" }} /> Resident Profile Identity
+        </h2>
+
+        <div className="grid-2" style={{ gap: "2rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>FULL NAME</span>
+              <span style={{ fontSize: "1.05rem", fontWeight: 700 }}>{profile?.name}</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>EMAIL ADDRESS</span>
+              <span style={{ fontSize: "1rem", color: "var(--text-secondary)" }}>{profile?.email}</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>BARANGAY JURISDICTION</span>
+              <span style={{ fontSize: "1rem", fontWeight: 700 }}>{profile?.barangayName || "Unassigned"}</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>RESIDENTIAL ADDRESS</span>
+              <span style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>{profile?.address || "N/A"}</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>PHONE NUMBER</span>
+              <span style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>{profile?.mobileNumber || "N/A"}</span>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>PORTAL ROLE</span>
+              <span style={{ fontSize: "1rem", fontWeight: 700, textTransform: "uppercase", color: "var(--primary)" }}>
+                {profile?.role?.replace("_", " ")}
+              </span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+              <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>IDENTITY VERIFICATION</span>
+              <span style={{ fontWeight: 700 }} className={`badge badge-${profile?.verified ? "success" : "warning"}`}>
+                {profile?.verified ? "VERIFIED RESIDENT" : "PENDING REVIEW"}
+              </span>
+            </div>
+
+            {profile?.idType && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>GOVERNMENT ID TYPE / NUMBER</span>
+                <span style={{ fontSize: "0.95rem", color: "var(--text-secondary)" }}>
+                  {profile.idType.toUpperCase()} ({profile.idNumber})
+                </span>
+              </div>
+            )}
+
+            {profile?.idPhotoUrl && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.78rem", color: "var(--text-muted)", fontWeight: 600 }}>SUBMITTED IDENTITY PHOTO</span>
+                <div style={{ width: "200px", height: "130px", border: "1px solid var(--border-glass)", borderRadius: "12px", overflow: "hidden" }}>
+                  <img src={profile.idPhotoUrl} alt="Submitted ID" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGuest }) => {
   const { projects, eventLogs, loading, xlmBalance, error: stateError } = useContractState();
   const { address, connected, connect } = useWallet();
-  const { profile, signOut, proposeBarangay, approveBarangay, getAllBarangays } = useAuth();
+  const { profile, signOut } = useAuth();
 
   // Collapsible Sidebar State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -37,17 +266,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
 
   // Role Switcher / Simulator Override state (for hackathon testing on localhost)
   const [activeRole, setActiveRole] = useState<RoleType>("viewer");
-  const [activeMenu, setActiveMenu] = useState<MenuKey>("transparency");
+  const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
 
   // Stellar L2 Error Toast States
   const [errorToast, setErrorToast] = useState<string | null>(null);
-
-  // Barangay Registry States
-  const [allBarangays, setAllBarangays] = useState<any[]>([]);
-  const [bgyName, setBgyName] = useState("");
-  const [bgyMuni, setBgyMuni] = useState("");
-  const [bgyProv, setBgyProv] = useState("");
-  const [submittingBgy, setSubmittingBgy] = useState(false);
 
   const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 
@@ -55,72 +277,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
   useEffect(() => {
     if (isGuest) {
       setActiveRole("viewer");
-      setActiveMenu("transparency");
+      setActiveMenu("dashboard");
       return;
     }
 
     if (profile?.role) {
       if (profile.role === "system_admin") {
         setActiveRole("system_admin");
-        setActiveMenu("system");
+        setActiveMenu("admin");
       } else if (profile.role === "barangay_admin") {
         setActiveRole("barangay_admin");
-        setActiveMenu("verify");
+        setActiveMenu("admin");
       } else if (profile.role === "sk_official") {
         setActiveRole("sk_official");
         setActiveMenu("projects");
       } else if (profile.role === "resident") {
         setActiveRole("resident");
-        setActiveMenu("voters");
+        setActiveMenu("voting");
       } else {
         setActiveRole("viewer");
-        setActiveMenu("transparency");
+        setActiveMenu("dashboard");
       }
     }
   }, [profile, isGuest]);
-
-  const loadAllBarangays = async () => {
-    try {
-      const list = await getAllBarangays();
-      setAllBarangays(list);
-    } catch (err) {
-      console.error("Failed to load barangays:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (activeRole === "system_admin" && (activeMenu === "system" || activeMenu === "logs")) {
-      loadAllBarangays();
-    }
-  }, [activeRole, activeMenu]);
-
-  const handleProposeBgy = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!bgyName || !bgyMuni || !bgyProv) return;
-    setSubmittingBgy(true);
-    try {
-      await proposeBarangay(bgyName, bgyMuni, bgyProv);
-      setBgyName("");
-      setBgyMuni("");
-      setBgyProv("");
-      await loadAllBarangays();
-      alert("Barangay proposal created successfully!");
-    } catch (err: any) {
-      alert("Failed to submit proposal: " + err.message);
-    } finally {
-      setSubmittingBgy(false);
-    }
-  };
-
-  const handleApproveBgy = async (id: string) => {
-    try {
-      await approveBarangay(id);
-      await loadAllBarangays();
-      alert("Barangay approved successfully! It is now selectable in registration dropdowns.");
-    } catch (err: any) {
-      alert("Failed to approve: " + err.message);
-    }
-  };
 
   // Transaction execution tracking state
   const [txStatus, setTxStatus] = useState<TransactionStatus>("Idle");
@@ -179,13 +358,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
   };
 
   const handleRoleSimulate = (role: RoleType) => {
-    if (isGuest) return; // Guests are locked in Viewer role
+    if (isGuest) return;
     setActiveRole(role);
-    if (role === "system_admin") setActiveMenu("system");
-    else if (role === "barangay_admin") setActiveMenu("verify");
+    if (role === "system_admin") setActiveMenu("admin");
+    else if (role === "barangay_admin") setActiveMenu("admin");
     else if (role === "sk_official") setActiveMenu("projects");
-    else if (role === "resident") setActiveMenu("voters");
-    else setActiveMenu("transparency");
+    else if (role === "resident") setActiveMenu("voting");
+    else setActiveMenu("dashboard");
   };
 
   const getRoleAccentClass = () => {
@@ -246,11 +425,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
       );
     }
 
-    if (isPendingApproval) {
+    if (profile && !profile.walletAddress) {
       return (
-        <div className="banner-notice mb-4" style={{ background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.3)", color: "#92400e" }}>
-          <AlertTriangle size={20} />
-          <span><strong>Pending Approval:</strong> Your {profile?.role === "barangay_admin" ? "Barangay Admin" : "Resident"} application is under review. You can browse the Transparency Feed while waiting.</span>
+        <div className="banner-notice bg-amber-soft border-amber text-amber-light mb-4" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <AlertTriangle size={20} />
+            <span>
+              <strong>Stellar Wallet Required:</strong> Connect and link your Stellar wallet under **Profile & Settings** to unlock voting, milestone signing, or budget creation features.
+            </span>
+          </div>
+          <button className="btn btn-outline-navy btn-sm" onClick={() => setActiveMenu("profile")}>
+            Go to Settings
+          </button>
         </div>
       );
     }
@@ -295,93 +481,16 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
     }
   };
 
-  // Check if current user is in a pending/unverified state
-  const isPendingApproval = !isGuest && profile && (
-    (profile.role === "barangay_admin" && profile.verificationStatus !== "approved") ||
-    (profile.role === "resident" && profile.verificationStatus !== "approved")
-  );
-
-  const renderPendingScreen = () => {
-    const roleLabel = profile?.role === "barangay_admin" ? "Barangay Admin" : "Resident";
-    const approverLabel = profile?.role === "barangay_admin" ? "System Admin" : "Barangay Admin";
-    return (
-      <div style={{ maxWidth: "560px", margin: "3rem auto", textAlign: "center" }}>
-        <div style={{
-          background: "linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.04))",
-          border: "1px solid rgba(245, 158, 11, 0.25)",
-          borderRadius: "20px",
-          padding: "3rem 2rem"
-        }}>
-          <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
-          <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>
-            Pending {roleLabel} Approval
-          </h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
-            Your <strong>{roleLabel}</strong> registration has been received and is awaiting approval from the <strong>{approverLabel}</strong>.
-            You will gain access to administrative tools once your application is reviewed and approved.
-          </p>
-
-          <div style={{
-            background: "rgba(0,0,0,0.03)",
-            border: "1px solid #e2e8f0",
-            borderRadius: "12px",
-            padding: "1.25rem",
-            textAlign: "left",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.6rem"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Account:</span>
-              <span style={{ fontWeight: 700 }}>{profile?.email}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Role Requested:</span>
-              <span style={{ fontWeight: 700, textTransform: "uppercase" }}>{profile?.role?.replace("_", " ")}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Status:</span>
-              <span className="badge badge-warning" style={{ fontWeight: 700 }}>
-                {profile?.verificationStatus?.toUpperCase() || "PENDING"}
-              </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-              <span style={{ color: "var(--text-secondary)" }}>Submitted:</span>
-              <span style={{ fontWeight: 700, fontFamily: "monospace", fontSize: "0.82rem" }}>
-                {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "N/A"}
-              </span>
-            </div>
-            {profile?.verificationNotes && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>Notes:</span>
-                <span style={{ fontWeight: 600, color: "#ef4444" }}>{profile.verificationNotes}</span>
-              </div>
-            )}
-          </div>
-
-          <p style={{ marginTop: "1.5rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
-            You can still browse the <strong>Transparency Feed</strong> while waiting. Check back after your {approverLabel} completes the review.
-          </p>
-        </div>
-      </div>
-    );
-  };
-
   const renderMainWorkspace = () => {
     if (loading && projects.length === 0) {
       return <LoadingSpinner size="lg" label="Synchronizing ledger state..." />;
     }
 
-    // If user is pending approval, only allow transparency feed — everything else shows the pending screen
-    if (isPendingApproval && activeMenu !== "transparency") {
-      return renderPendingScreen();
-    }
-
     switch (activeMenu) {
-      case "transparency":
+      case "dashboard":
         return <TransparencyHub projects={projects} eventLogs={eventLogs} />;
 
-      case "voters":
+      case "voting":
         if (isGuest) return null;
         if (!connected) {
           return (
@@ -395,6 +504,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
             </div>
           );
         }
+        if (!profile?.walletAddress) {
+          return (
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
+              <h3>Stellar Wallet Not Linked</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                You must link your Stellar wallet address to your profile first. Navigate to the **Profile & Settings** tab to bind your wallet.
+              </p>
+              <button className="btn btn-primary" onClick={() => setActiveMenu("profile")}>Go to Profile & Settings</button>
+            </div>
+          );
+        }
+        if (address && profile.walletAddress && address.toLowerCase() !== profile.walletAddress.toLowerCase()) {
+          return (
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
+              <h3>Wallet Address Mismatch</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                The connected wallet address (<code>{address.slice(0, 6)}...{address.slice(-6)}</code>) does not match your profile's linked address (<code>{profile.walletAddress.slice(0, 6)}...{profile.walletAddress.slice(-6)}</code>). Please switch accounts in your wallet extension.
+              </p>
+            </div>
+          );
+        }
         return (
           <YouthDashboard
             voterAddress={address!}
@@ -404,7 +536,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
         );
 
       case "projects":
-      case "propose":
         if (isGuest) return null;
         if (!connected) {
           return (
@@ -418,6 +549,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
             </div>
           );
         }
+        if (!profile?.walletAddress) {
+          return (
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
+              <h3>Stellar Wallet Not Linked</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                You must link your Stellar wallet address to your profile first. Navigate to the **Profile & Settings** tab to bind your wallet.
+              </p>
+              <button className="btn btn-primary" onClick={() => setActiveMenu("profile")}>Go to Profile & Settings</button>
+            </div>
+          );
+        }
+        if (address && profile.walletAddress && address.toLowerCase() !== profile.walletAddress.toLowerCase()) {
+          return (
+            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
+              <h3>Wallet Address Mismatch</h3>
+              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                The connected wallet address does not match your profile's linked address. Please switch accounts in your wallet extension.
+              </p>
+            </div>
+          );
+        }
         return (
           <SKWorkspace
             skAddress={address!}
@@ -426,173 +580,58 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
           />
         );
 
-      case "verify":
+      case "admin":
         if (isGuest) return null;
-        if (!connected) {
-          return (
-            <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
-              <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
-              <h3>Stellar Wallet Required</h3>
-              <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
-                Confirming resident activations requires Admin signing. Please connect Freighter.
-              </p>
-              <button className="btn btn-primary" onClick={connect}>Connect Wallet</button>
-            </div>
-          );
+        
+        // System Admin manages platform off-chain (LGUs & Admins) and does not require a Stellar wallet to view the queues
+        const isSystemAdmin = profile?.role === "system_admin";
+        
+        if (!isSystemAdmin) {
+          if (!connected) {
+            return (
+              <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔑</div>
+                <h3>Stellar Wallet Required</h3>
+                <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                  Confirming resident activations requires Admin signing. Please connect Freighter.
+                </p>
+                <button className="btn btn-primary" onClick={connect}>Connect Wallet</button>
+              </div>
+            );
+          }
+          if (!profile?.walletAddress) {
+            return (
+              <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
+                <h3>Stellar Wallet Not Linked</h3>
+                <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                  You must link your Stellar wallet address to your profile first. Navigate to the **Profile & Settings** tab to bind your wallet.
+                </p>
+                <button className="btn btn-primary" onClick={() => setActiveMenu("profile")}>Go to Profile & Settings</button>
+              </div>
+            );
+          }
+          if (address && profile.walletAddress && address.toLowerCase() !== profile.walletAddress.toLowerCase()) {
+            return (
+              <div className="empty-panel-state" style={{ maxWidth: "480px", margin: "3rem auto" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
+                <h3>Wallet Address Mismatch</h3>
+                <p className="mt-2 text-secondary" style={{ marginBottom: "1.5rem" }}>
+                  The connected wallet address does not match your profile's linked address. Please switch accounts in your wallet extension.
+                </p>
+              </div>
+            );
+          }
         }
-        return <AdminPanel adminAddress={address!} onExecute={executeAction} />;
+        return <AdminPanel adminAddress={address || ""} onExecute={executeAction} />;
 
-      case "system":
-      case "logs":
+      case "notifications":
         if (isGuest) return null;
-        return (
-          <div className="system-admin-dashboard">
-            <div className="panel-card mb-4">
-              <h2 className="panel-title">Participating Barangay Allocations</h2>
-              <p className="panel-subtitle">Propose and approve local government units participating in the platform. Only approved units are visible to residents.</p>
-              
-              <div className="grid-2">
-                <form onSubmit={handleProposeBgy} className="panel-form" style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "1.5rem", borderRadius: "16px" }}>
-                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--role-accent)" }}>Propose Barangay</h3>
-                  
-                  <div className="form-group">
-                    <label>Barangay Name</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Central Barangay"
-                      value={bgyName}
-                      onChange={(e) => setBgyName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Municipality / City</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Manila"
-                      value={bgyMuni}
-                      onChange={(e) => setBgyMuni(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Province</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Metro Manila"
-                      value={bgyProv}
-                      onChange={(e) => setBgyProv(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <button type="submit" className="btn btn-primary" disabled={submittingBgy}>
-                    {submittingBgy ? "Submitting..." : "Propose Participating Barangay"}
-                  </button>
-                </form>
+        return <NotificationsPanel profile={profile} />;
 
-                <div style={{ maxHeight: "380px", overflowY: "auto" }}>
-                  <h3 style={{ fontSize: "1.1rem", marginBottom: "0.5rem", color: "var(--text-primary)" }}>Registry Timeline</h3>
-                  {allBarangays.length === 0 ? (
-                    <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>No barangays submitted in the database registry.</p>
-                  ) : (
-                    <div className="table-responsive">
-                      <table className="ledger-table">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>Municipality</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {allBarangays.map((b) => (
-                            <tr key={b.id}>
-                              <td className="font-bold">{b.name}</td>
-                              <td>{b.municipality}</td>
-                              <td>
-                                <span className={`badge ${b.status === "approved" ? "badge-success" : "badge-warning"}`}>
-                                  {b.status}
-                                </span>
-                              </td>
-                              <td>
-                                {b.status === "pending" ? (
-                                  <button 
-                                    className="btn btn-primary btn-sm"
-                                    onClick={() => handleApproveBgy(b.id)}
-                                  >
-                                    Approve
-                                  </button>
-                                ) : (
-                                  <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Active</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="panel-card">
-              <h2 className="panel-title">System RPC Node & Contract Details</h2>
-              <p className="panel-subtitle">Manage deployed networks, check RPC node status, and review platform variables.</p>
-              <div className="grid-2">
-                <div className="stats-card">
-                  <span className="stats-title">Contract ID</span>
-                  <span className="stats-value" style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>
-                    CCJYQG5OTMKW3HCA73ISFLUX3ZDBKKX4JT7ZLD7ZFPS7POGZJ2C3ZDJP
-                  </span>
-                  <span className="stats-desc mt-2">Soroban Smart Contract Deployed on Stellar Testnet</span>
-                </div>
-                <div className="stats-card">
-                  <span className="stats-title">Token Asset</span>
-                  <span className="stats-value" style={{ fontSize: "1.05rem", fontFamily: "monospace" }}>
-                    CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
-                  </span>
-                  <span className="stats-desc mt-2">Wrapped Native XLM Asset Address</span>
-                </div>
-              </div>
-              <div className="table-responsive mt-4">
-                <table className="ledger-table">
-                  <thead>
-                    <tr>
-                      <th>RPC Parameter</th>
-                      <th>Value</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>Stellar Horizon Server</td>
-                      <td><code>https://horizon-testnet.stellar.org</code></td>
-                      <td><span className="badge badge-success">Online</span></td>
-                    </tr>
-                    <tr>
-                      <td>Soroban RPC Endpoint</td>
-                      <td><code>https://soroban-testnet.stellar.org</code></td>
-                      <td><span className="badge badge-success">Online</span></td>
-                    </tr>
-                    <tr>
-                      <td>Deployer Balance</td>
-                      <td><code>8,472.91 XLM</code></td>
-                      <td><span className="badge badge-success">Stable</span></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        );
+      case "profile":
+        if (isGuest) return null;
+        return <ProfileSettingsPanel profile={profile} xlmBalance={xlmBalance} />;
 
       default:
         return null;
@@ -670,75 +709,66 @@ const MainLayout: React.FC<MainLayoutProps> = ({ setViewState, isGuest, setIsGue
 
           <nav className="sidebar-nav">
             <button 
-              className={`sidebar-nav-item ${activeMenu === "transparency" ? "active" : ""}`}
-              onClick={() => { setActiveMenu("transparency"); setMobileMenuOpen(false); }}
+              className={`sidebar-nav-item ${activeMenu === "dashboard" ? "active" : ""}`}
+              onClick={() => { setActiveMenu("dashboard"); setMobileMenuOpen(false); }}
             >
               <Layout size={20} />
-              <span className="nav-label">Transparency Feed</span>
+              <span className="nav-label">Dashboard</span>
             </button>
 
+            {/* Projects Tab */}
+            {!isGuest && (activeRole === "sk_official" || activeRole === "resident" || activeRole === "viewer") && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
+              >
+                <BookOpen size={20} />
+                <span className="nav-label">{activeRole === "sk_official" ? "My Projects" : "Audit Projects"}</span>
+              </button>
+            )}
+
+            {/* Voting Tab */}
+            {!isGuest && (activeRole === "resident" || activeRole === "sk_official") && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "voting" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("voting"); setMobileMenuOpen(false); }}
+              >
+                <CheckSquare size={20} />
+                <span className="nav-label">Milestone Voting</span>
+              </button>
+            )}
+
+            {/* Admin Console */}
+            {!isGuest && (activeRole === "system_admin" || activeRole === "barangay_admin") && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "admin" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("admin"); setMobileMenuOpen(false); }}
+              >
+                <Settings size={20} />
+                <span className="nav-label">Admin Console</span>
+              </button>
+            )}
+
+            {/* Notifications Tab */}
             {!isGuest && (
-              <>
-                {activeRole === "system_admin" && (
-                  <>
-                    <button 
-                      className={`sidebar-nav-item ${activeMenu === "system" ? "active" : ""}`}
-                      onClick={() => { setActiveMenu("system"); setMobileMenuOpen(false); }}
-                    >
-                      <Settings size={20} />
-                      <span className="nav-label">System Console</span>
-                    </button>
-                    <button 
-                      className={`sidebar-nav-item ${activeMenu === "logs" ? "active" : ""}`}
-                      onClick={() => { setActiveMenu("logs"); setMobileMenuOpen(false); }}
-                    >
-                      <BookOpen size={20} />
-                      <span className="nav-label">System Logs</span>
-                    </button>
-                  </>
-                )}
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "notifications" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("notifications"); setMobileMenuOpen(false); }}
+              >
+                <Bell size={20} />
+                <span className="nav-label">Notifications</span>
+              </button>
+            )}
 
-                {activeRole === "barangay_admin" && !isPendingApproval && (
-                  <button 
-                    className={`sidebar-nav-item ${activeMenu === "verify" ? "active" : ""}`}
-                    onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
-                  >
-                    <UserCheck size={20} />
-                    <span className="nav-label">Resident Approvals</span>
-                  </button>
-                )}
-
-                {activeRole === "sk_official" && (
-                  <button 
-                    className={`sidebar-nav-item ${activeMenu === "projects" ? "active" : ""}`}
-                    onClick={() => { setActiveMenu("projects"); setMobileMenuOpen(false); }}
-                  >
-                    <Users size={20} />
-                    <span className="nav-label">My Projects</span>
-                  </button>
-                )}
-
-                {activeRole === "resident" && !isPendingApproval && (
-                  <button 
-                    className={`sidebar-nav-item ${activeMenu === "voters" ? "active" : ""}`}
-                    onClick={() => { setActiveMenu("voters"); setMobileMenuOpen(false); }}
-                  >
-                    <CheckSquare size={20} />
-                    <span className="nav-label">Milestones Vote</span>
-                  </button>
-                )}
-
-                {isPendingApproval && (
-                  <button 
-                    className={`sidebar-nav-item ${activeMenu !== "transparency" ? "active" : ""}`}
-                    onClick={() => { setActiveMenu("verify"); setMobileMenuOpen(false); }}
-                    style={{ color: "#f59e0b" }}
-                  >
-                    <AlertTriangle size={20} />
-                    <span className="nav-label">Pending Approval</span>
-                  </button>
-                )}
-              </>
+            {/* Profile & Settings Tab */}
+            {!isGuest && (
+              <button 
+                className={`sidebar-nav-item ${activeMenu === "profile" ? "active" : ""}`}
+                onClick={() => { setActiveMenu("profile"); setMobileMenuOpen(false); }}
+              >
+                <User size={20} />
+                <span className="nav-label">Profile & Settings</span>
+              </button>
             )}
           </nav>
 
@@ -829,7 +859,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ setViewState, setIsGuest }) =
           </p>
           <div className="landing-hero-ctas">
             <button className="btn btn-navy btn-lg" onClick={() => setViewState("auth")}>
-              Register LGU Account <ChevronRight size={18} style={{ marginLeft: "0.5rem" }} />
+              Join Barangay Bond <ChevronRight size={18} style={{ marginLeft: "0.5rem" }} />
             </button>
             <button className="btn btn-outline-navy btn-lg" onClick={handleEnterGuest}>
               View Live Transparency Feed <Activity size={18} style={{ marginLeft: "0.5rem" }} />
@@ -846,7 +876,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ setViewState, setIsGuest }) =
           
           <div className="grid-3 mt-4">
             <div className="stats-card" style={{ alignItems: "center", textAlign: "center" }}>
-              <span className="stats-title" style={{ color: "#3b82f6" }}>LGUs Registered</span>
+              <span className="stats-title" style={{ color: "#3b82f6" }}>Barangays Registered</span>
               <span className="stats-value">{approvedCount}</span>
               <span className="stats-desc">Approved participating barangays</span>
             </div>
@@ -974,11 +1004,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ setViewState, setIsGuest }) =
 
 const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setViewState }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [signUpStep, setSignUpStep] = useState(1);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [middleName, setMiddleName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [suffix, setSuffix] = useState("");
   const [birthdate, setBirthdate] = useState("");
-  const [desiredRole, setDesiredRole] = useState<"resident" | "barangay_admin">("resident");
+  const [desiredRole, setDesiredRole] = useState<"resident" | "barangay_admin" | "system_admin">("resident");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -989,6 +1023,10 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   const [idNumber, setIdNumber] = useState("");
   const [schoolName, setSchoolName] = useState("");
   const [idPhotoUrl, setIdPhotoUrl] = useState("");
+  const [selfiePhotoUrl, setSelfiePhotoUrl] = useState("");
+  const [professionalInfo, setProfessionalInfo] = useState("");
+  const [adminReason, setAdminReason] = useState("");
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState("");
 
   // Dynamic Barangay list state
   const [approvedBarangays, setApprovedBarangays] = useState<any[]>([]);
@@ -1033,45 +1071,59 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
           await signUp(
             email, 
             password, 
-            name, 
+            firstName,
+            middleName,
+            lastName,
+            suffix,
             birthdate, 
             "unassigned", 
             "Unassigned", 
             "N/A",
             "N/A",
             desiredRole,
-            mobileNumber || "N/A",
-            address || "N/A",
-            "admin",
-            "N/A",
-            "N/A",
-            "N/A"
+            mobileNumber,
+            address,
+            idType,
+            idNumber,
+            "N/A", // schoolName
+            idPhotoUrl,
+            selfiePhotoUrl,
+            professionalInfo,
+            adminReason,
+            profilePhotoUrl
           );
         } else {
           const selectedBgy = approvedBarangays.find((b) => b.id === selectedBarangayId);
-          if (!selectedBgy) {
+          if (desiredRole === "resident" && !selectedBgy) {
             throw new Error("No approved barangay is selected. Please select one to proceed.");
           }
           await signUp(
             email,
             password,
-            name,
+            firstName,
+            middleName,
+            lastName,
+            suffix,
             birthdate,
-            selectedBgy.id,
-            selectedBgy.name,
-            selectedBgy.municipality || "N/A",
-            selectedBgy.province || "N/A",
+            selectedBgy ? selectedBgy.id : "unassigned",
+            selectedBgy ? selectedBgy.name : "Unassigned",
+            selectedBgy ? (selectedBgy.municipality || "N/A") : "N/A",
+            selectedBgy ? (selectedBgy.province || "N/A") : "N/A",
             desiredRole,
             mobileNumber,
             address,
             idType,
             idNumber,
             schoolName || "N/A",
-            idPhotoUrl || "https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&w=400&q=80"
+            idPhotoUrl || "https://images.unsplash.com/photo-1554774853-aae0a22c8aa4?auto=format&fit=crop&w=400&q=80",
+            undefined,
+            undefined,
+            undefined,
+            profilePhotoUrl
           );
         }
+        setSignUpStep(5);
       }
-      setViewState("dashboard");
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Authentication failed. Please check credentials.");
@@ -1080,7 +1132,556 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
     }
   };
 
+  const handleNextStep = () => {
+    setError(null);
+    if (signUpStep === 1) {
+      if (desiredRole === "resident" && !selectedBarangayId) {
+        setError("Please select a participating Barangay boundary location.");
+        return;
+      }
+      setSignUpStep(2);
+    } else if (signUpStep === 2) {
+      if (!firstName.trim() || !lastName.trim()) {
+        setError("Please enter your first name and last name.");
+        return;
+      }
+      if (!birthdate) {
+        setError("Please select your date of birth.");
+        return;
+      }
+      if (desiredRole === "resident" && (!mobileNumber.trim() || !address.trim())) {
+        setError("Please enter residential details and contact phone number.");
+        return;
+      }
+      if (desiredRole === "barangay_admin") {
+        if (!mobileNumber.trim() || !address.trim()) {
+          setError("Please enter your mobile number and residential address.");
+          return;
+        }
+        if (!professionalInfo.trim()) {
+          setError("Please enter your professional title or current occupation.");
+          return;
+        }
+        if (!adminReason.trim()) {
+          setError("Please explain your reason for applying as Barangay Administrator.");
+          return;
+        }
+      }
+      if ((desiredRole === "resident" || desiredRole === "barangay_admin") && !profilePhotoUrl) {
+        setError("Please upload your profile photo to proceed.");
+        return;
+      }
+      if (desiredRole === "resident" || desiredRole === "barangay_admin") {
+        setSignUpStep(3);
+      } else {
+        setSignUpStep(4);
+      }
+    } else if (signUpStep === 3) {
+      if (!idNumber.trim()) {
+        setError("Please enter your Document ID Number.");
+        return;
+      }
+      if (desiredRole === "resident" && idType === "student" && !schoolName.trim()) {
+        setError("Please specify the school/university name.");
+        return;
+      }
+      if (!idPhotoUrl) {
+        setError("Please upload a picture of your document ID for validation.");
+        return;
+      }
+      if (desiredRole === "barangay_admin" && !selfiePhotoUrl) {
+        setError("Please upload a selfie holding your ID card.");
+        return;
+      }
+      setSignUpStep(4);
+    }
+  };
+
+  const handlePrevStep = () => {
+    setError(null);
+    if (signUpStep === 4) {
+      if (desiredRole === "resident" || desiredRole === "barangay_admin") {
+        setSignUpStep(3);
+      } else {
+        setSignUpStep(2);
+      }
+    } else {
+      setSignUpStep((prev) => Math.max(prev - 1, 1));
+    }
+  };
+
   const isRegistrationDisabled = !isLogin && desiredRole === "resident" && approvedBarangays.length === 0 && !loadingBarangays;
+
+  const renderSignupWizard = () => {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        {/* Wizard progress billboard */}
+        <div className="wizard-progress-bar">
+          <span className={`step-dot ${signUpStep >= 1 ? "active" : ""}`}>1. Role / LGU</span>
+          <span className={`step-dot ${signUpStep >= 2 ? "active" : ""}`}>2. Identity Details</span>
+          {(desiredRole === "resident" || desiredRole === "barangay_admin") && (
+            <span className={`step-dot ${signUpStep >= 3 ? "active" : ""}`}>3. Verification Docs</span>
+          )}
+          <span className={`step-dot ${signUpStep >= 4 ? "active" : ""}`}>4. Security</span>
+        </div>
+
+        {/* Step 1: Role and Location */}
+        {signUpStep === 1 && (
+          <div className="wizard-step-container animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="form-group">
+              <label>Desired Portal Role</label>
+              <select
+                className="form-control"
+                value={desiredRole}
+                onChange={(e) => setDesiredRole(e.target.value as any)}
+              >
+                <option value="resident">Resident (Voter)</option>
+                <option value="barangay_admin">Barangay Admin</option>
+                <option value="system_admin">System Admin</option>
+              </select>
+            </div>
+
+            {desiredRole === "resident" && (
+              <div className="form-group">
+                <label>Select Participating Barangay</label>
+                {loadingBarangays ? (
+                  <div style={{ padding: "0.5rem 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    ⏳ Fetching approved barangays...
+                  </div>
+                ) : approvedBarangays.length === 0 ? (
+                  <div className="form-error-msg" style={{ fontSize: "0.85rem", padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
+                    ⚠️ There are currently no approved barangays participating in Barangay Bond. Please contact your LGU.
+                  </div>
+                ) : (
+                  <select
+                    className="form-control"
+                    value={selectedBarangayId}
+                    onChange={(e) => setSelectedBarangayId(e.target.value)}
+                    required
+                  >
+                    {approvedBarangays.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.municipality}, {b.province})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="btn btn-primary w-100"
+              style={{ marginTop: "1rem" }}
+              disabled={isRegistrationDisabled}
+              onClick={handleNextStep}
+            >
+              Continue to Personal Details
+            </button>
+          </div>
+        )}
+
+        {/* Step 2: Personal Details */}
+        {signUpStep === 2 && (
+          <div className="wizard-step-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="grid-2" style={{ gap: "1rem" }}>
+              <div className="form-group">
+                <label>First Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Juan"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Middle Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Santos (Optional)"
+                  value={middleName}
+                  onChange={(e) => setMiddleName(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid-2" style={{ gap: "1rem" }}>
+              <div className="form-group">
+                <label>Last Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Dela Cruz"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Suffix</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Jr., III (Optional)"
+                  value={suffix}
+                  onChange={(e) => setSuffix(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Birthdate</label>
+              <input
+                type="date"
+                className="form-control"
+                value={birthdate}
+                onChange={(e) => setBirthdate(e.target.value)}
+                required
+              />
+            </div>
+
+            {(desiredRole === "resident" || desiredRole === "barangay_admin") && (
+              <div className="form-group">
+                <label>Profile Photo</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="form-control"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = async () => {
+                        const compressed = await compressImage(reader.result as string);
+                        setProfilePhotoUrl(compressed);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  required={!profilePhotoUrl}
+                />
+                {profilePhotoUrl && (
+                  <div className="mt-2" style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "120px", height: "120px", position: "relative" }}>
+                    <img src={profilePhotoUrl} alt="Profile Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <span style={{ position: "absolute", bottom: "4px", right: "4px", background: "rgba(22, 163, 74, 0.9)", color: "#ffffff", padding: "0.1rem 0.3rem", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>PROFILE OK</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {desiredRole === "resident" && (
+              <>
+                <div className="form-group">
+                  <label>Mobile Number</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="e.g. 09171234567"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Residential Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Unit 4B, 123 Rizal St"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            {desiredRole === "barangay_admin" && (
+              <>
+                <div className="form-group">
+                  <label>Mobile Number</label>
+                  <input
+                    type="tel"
+                    className="form-control"
+                    placeholder="e.g. 09171234567"
+                    value={mobileNumber}
+                    onChange={(e) => setMobileNumber(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Residential Address</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. 123 Rizal Ave, Brgy. San Pascual"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Professional Information / SK or Barangay Title</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Barangay Executive Secretary"
+                    value={professionalInfo}
+                    onChange={(e) => setProfessionalInfo(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Reason for becoming Barangay Admin</label>
+                  <textarea
+                    className="form-control"
+                    placeholder="e.g. To verify local residents, oversee community projects, and audit SK releases."
+                    value={adminReason}
+                    onChange={(e) => setAdminReason(e.target.value)}
+                    rows={3}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <button type="button" className="btn btn-outline-navy flex-grow" onClick={handlePrevStep}>
+                Back
+              </button>
+              <button type="button" className="btn btn-primary flex-grow" onClick={handleNextStep}>
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 3: Identity Document Verification */}
+        {signUpStep === 3 && (desiredRole === "resident" || desiredRole === "barangay_admin") && (
+          <div className="wizard-step-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div style={{ background: "rgba(59, 130, 246, 0.05)", border: "1px solid #3b82f6", borderRadius: "12px", padding: "0.85rem 1rem", fontSize: "0.78rem" }}>
+              <span style={{ fontWeight: 700, color: "#2563eb", display: "block", marginBottom: "0.3rem" }}>📄 Accepted Identity Documents:</span>
+              <p style={{ margin: 0, color: "var(--text-secondary)", lineHeight: "1.3" }}>
+                <strong>Government IDs:</strong> National ID, Barangay ID, Passport, Driver's License, PhilHealth, Postal ID, UMID, PRC, Voter's ID.
+              </p>
+              <p style={{ margin: "0.3rem 0 0 0", color: "var(--text-secondary)", lineHeight: "1.3" }}>
+                <strong>School IDs:</strong> Senior High School, College, or University IDs (must contain student photo, school name, and student number).
+              </p>
+              <span style={{ display: "block", marginTop: "0.4rem", fontStyle: "italic", color: "#475569", fontWeight: 600 }}>
+                ⚠️ Uploaded ID must clearly show your identity and support residency verification within the selected Barangay.
+              </span>
+            </div>
+
+            <div className="form-group">
+              <label>Identity Document Type</label>
+              <select
+                className="form-control"
+                value={idType}
+                onChange={(e) => setIdType(e.target.value)}
+                required
+              >
+                <option value="barangay">Barangay ID (Preferred)</option>
+                <option value="student">Student ID</option>
+                <option value="national">National ID (PhilSys)</option>
+                <option value="passport">Passport</option>
+                <option value="driver">Driver's License</option>
+                <option value="other">Other government ID</option>
+              </select>
+            </div>
+
+            {idType === "student" && desiredRole === "resident" && (
+              <div className="form-group">
+                <label>School / University Name</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. University of the Philippines"
+                  value={schoolName}
+                  onChange={(e) => setSchoolName(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            <div className="form-group">
+              <label>Document ID Number</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="e.g. BGY-2026-98472"
+                value={idNumber}
+                onChange={(e) => setIdNumber(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Upload Photo of Document ID</label>
+              <input
+                type="file"
+                accept="image/*"
+                className="form-control"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                      const compressed = await compressImage(reader.result as string);
+                      setIdPhotoUrl(compressed);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                required={!idPhotoUrl}
+              />
+              {idPhotoUrl && (
+                <div className="mt-2" style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "120px", height: "80px", position: "relative" }}>
+                  <img src={idPhotoUrl} alt="ID Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <span style={{ position: "absolute", bottom: "4px", right: "4px", background: "rgba(22, 163, 74, 0.9)", color: "#ffffff", padding: "0.1rem 0.3rem", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>PREVIEW</span>
+                </div>
+              )}
+            </div>
+
+            {desiredRole === "barangay_admin" && (
+              <div className="form-group">
+                <label>Upload Selfie Holding ID Card</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="form-control"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = async () => {
+                        const compressed = await compressImage(reader.result as string);
+                        setSelfiePhotoUrl(compressed);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  required={!selfiePhotoUrl}
+                />
+                {selfiePhotoUrl && (
+                  <div className="mt-2" style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "120px", height: "80px", position: "relative" }}>
+                    <img src={selfiePhotoUrl} alt="Selfie Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <span style={{ position: "absolute", bottom: "4px", right: "4px", background: "rgba(22, 163, 74, 0.9)", color: "#ffffff", padding: "0.1rem 0.3rem", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>SELFIE OK</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <button type="button" className="btn btn-outline-navy flex-grow" onClick={handlePrevStep}>
+                Back
+              </button>
+              <button type="button" className="btn btn-primary flex-grow" onClick={handleNextStep}>
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 4: Security Credentials */}
+        {signUpStep === 4 && (
+          <div className="wizard-step-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="form-group">
+              <label>Email Address</label>
+              <input
+                type="email"
+                className="form-control"
+                placeholder="e.g. name@domain.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                className="form-control"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+              <button type="button" className="btn btn-outline-navy flex-grow" onClick={handlePrevStep} disabled={loading}>
+                Back
+              </button>
+              <button type="submit" className="btn btn-primary flex-grow" disabled={loading}>
+                {loading ? "Creating Account..." : "Create Account & Submit"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Registration Success / Under Review */}
+        {signUpStep === 5 && (
+          <div className="wizard-step-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: "1.5rem", padding: "1rem 0" }}>
+            <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(34, 197, 94, 0.1)", color: "#22c55e", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ShieldCheck size={36} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: "0 0 0.5rem 0", color: "var(--text-primary)" }}>
+                Registration Submitted!
+              </h2>
+              <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)", lineHeight: "1.5", margin: 0 }}>
+                Your Barangay Bond registration request was received and is currently under review.
+              </p>
+            </div>
+            
+            <div style={{ background: "rgba(241, 245, 249, 0.6)", borderRadius: "12px", padding: "1rem", width: "100%", textAlign: "left", fontSize: "0.8rem", border: "1px solid #e2e8f0" }}>
+              <span style={{ fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: "0.4rem" }}>Next Steps:</span>
+              <ul style={{ margin: 0, paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                {desiredRole === "barangay_admin" ? (
+                  <li>System Administrator will review and approve your credentials.</li>
+                ) : (
+                  <li>Your local Sangguniang Kabataan / Barangay Administrator will verify your document ID.</li>
+                )}
+                <li>Once approved, you will receive confirmation and can log in with your email.</li>
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary w-full"
+              onClick={() => {
+                setSignUpStep(1);
+                setEmail("");
+                setPassword("");
+                setFirstName("");
+                setMiddleName("");
+                setLastName("");
+                setSuffix("");
+                setBirthdate("");
+                setMobileNumber("");
+                setAddress("");
+                setIdNumber("");
+                setSchoolName("");
+                setIsLogin(true);
+              }}
+            >
+              Return to Login
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="auth-layout">
@@ -1126,195 +1727,43 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
         {error && <div className="form-error-msg mb-4">{error}</div>}
 
         <form onSubmit={handleAuth} className="panel-form">
-          {!isLogin && (
+          {isLogin ? (
             <>
               <div className="form-group">
-                <label>Full Name</label>
+                <label>Email Address</label>
                 <input
-                  type="text"
+                  type="email"
                   className="form-control"
-                  placeholder="e.g. John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. name@domain.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Birthdate (15-30 years check)</label>
+                <label>Password</label>
                 <input
-                  type="date"
+                  type="password"
                   className="form-control"
-                  value={birthdate}
-                  onChange={(e) => setBirthdate(e.target.value)}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
 
-              <div className="form-group">
-                <label>Desired Portal Role</label>
-                <select
-                  className="form-control"
-                  value={desiredRole}
-                  onChange={(e) => setDesiredRole(e.target.value as any)}
-                >
-                  <option value="resident">Resident (Voter)</option>
-                  <option value="barangay_admin">Barangay Admin</option>
-                </select>
-              </div>
-
-              {desiredRole === "resident" && (
-                <>
-                  <div className="form-group">
-                    <label>Select Participating Barangay</label>
-                    {loadingBarangays ? (
-                      <div style={{ padding: "0.5rem 0", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                        ⏳ Fetching approved barangays...
-                      </div>
-                    ) : approvedBarangays.length === 0 ? (
-                      <div className="form-error-msg" style={{ fontSize: "0.85rem", padding: "0.75rem", background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "8px" }}>
-                        ⚠️ There are currently no approved barangays participating in Barangay Bond. Please contact your LGU.
-                      </div>
-                    ) : (
-                      <select
-                        className="form-control"
-                        value={selectedBarangayId}
-                        onChange={(e) => setSelectedBarangayId(e.target.value)}
-                        required
-                      >
-                        {approvedBarangays.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.municipality}, {b.province})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  <div className="form-group">
-                    <label>Mobile Number</label>
-                    <input
-                      type="tel"
-                      className="form-control"
-                      placeholder="e.g. 09171234567"
-                      value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Residential Address</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Unit 4B, 123 Rizal St"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Identity Document Type</label>
-                    <select
-                      className="form-control"
-                      value={idType}
-                      onChange={(e) => setIdType(e.target.value)}
-                      required
-                    >
-                      <option value="barangay">Barangay ID (Preferred)</option>
-                      <option value="student">Student ID</option>
-                      <option value="national">National ID (PhilSys)</option>
-                      <option value="passport">Passport</option>
-                      <option value="driver">Driver's License</option>
-                      <option value="other">Other government ID</option>
-                    </select>
-                  </div>
-
-                  {idType === "student" && (
-                    <div className="form-group">
-                      <label>School / University Name</label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        placeholder="e.g. University of the Philippines"
-                        value={schoolName}
-                        onChange={(e) => setSchoolName(e.target.value)}
-                        required
-                      />
-                    </div>
-                  )}
-
-                  <div className="form-group">
-                    <label>Document ID Number</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. BGY-2026-98472"
-                      value={idNumber}
-                      onChange={(e) => setIdNumber(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Upload Photo of Document ID</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="form-control"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setIdPhotoUrl(URL.createObjectURL(file));
-                        }
-                      }}
-                      required={!idPhotoUrl}
-                    />
-                    {idPhotoUrl && (
-                      <div className="mt-2" style={{ border: "1px solid #cbd5e1", borderRadius: "12px", overflow: "hidden", width: "120px", height: "80px", position: "relative" }}>
-                        <img src={idPhotoUrl} alt="ID Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        <span style={{ position: "absolute", bottom: "4px", right: "4px", background: "rgba(22, 163, 74, 0.9)", color: "#ffffff", padding: "0.1rem 0.3rem", borderRadius: "4px", fontSize: "0.6rem", fontWeight: 700 }}>PREVIEW</span>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
+              <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                {loading ? "Processing..." : "Login"}
+              </button>
             </>
+          ) : (
+            renderSignupWizard()
           )}
-
-          <div className="form-group">
-            <label>Email Address</label>
-            <input
-              type="email"
-              className="form-control"
-              placeholder="e.g. name@domain.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              className="form-control"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-
-          <button type="submit" className="btn btn-primary w-100" disabled={loading || isRegistrationDisabled}>
-            {loading ? "Processing..." : isLogin ? "Login" : "Sign Up"}
-          </button>
         </form>
 
         <div className="auth-toggle-row">
-          <button className="btn-text-link" onClick={() => setIsLogin(!isLogin)}>
+          <button className="btn-text-link" onClick={() => { setIsLogin(!isLogin); setSignUpStep(1); setError(null); }}>
             {isLogin ? "Need a new profile? Register here" : "Already have an account? Sign in"}
           </button>
         </div>
@@ -1333,10 +1782,140 @@ const AuthPage: React.FC<{ setViewState: (state: ViewState) => void }> = ({ setV
   );
 };
 
+interface StatusScreenProps {
+  profile: any;
+  onLogout: () => Promise<void>;
+}
+
+const PendingApprovalScreen: React.FC<StatusScreenProps> = ({ profile, onLogout }) => {
+  const roleLabel = profile?.requestedRole === "barangay_admin" ? "Barangay Admin" : "Resident";
+  const approverLabel = profile?.requestedRole === "barangay_admin" ? "System Admin" : "Barangay Admin";
+  const submittedDate = profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "N/A";
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-base)", padding: "2rem" }}>
+      <div style={{ maxWidth: "520px", width: "100%", background: "var(--bg-surface)", border: "1px solid var(--border-glass)", borderRadius: "24px", padding: "3rem 2rem", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.05)", textAlign: "center" }}>
+        <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(245, 158, 11, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem auto", color: "#d97706" }}>
+          <Info size={32} />
+        </div>
+        <h2 style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>Application Received</h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "2rem" }}>
+          Your <strong>{roleLabel}</strong> registration has been submitted and is currently awaiting identity review by the <strong>{approverLabel}</strong>.
+        </p>
+
+        <div style={{ background: "var(--bg-base)", border: "1px solid var(--border-glass)", borderRadius: "16px", padding: "1.25rem", textAlign: "left", display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "2rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+            <span style={{ color: "var(--text-secondary)" }}>Status:</span>
+            <span className="badge badge-warning" style={{ fontWeight: 700 }}>PENDING REVIEW</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+            <span style={{ color: "var(--text-secondary)" }}>Current Barangay:</span>
+            <span style={{ fontWeight: 700 }}>{profile?.barangayName || "Unassigned"}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+            <span style={{ color: "var(--text-secondary)" }}>Submitted:</span>
+            <span style={{ fontWeight: 700 }}>{submittedDate}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.88rem" }}>
+            <span style={{ color: "var(--text-secondary)" }}>Estimated Review:</span>
+            <span style={{ fontWeight: 700, color: "var(--primary)" }}>1–3 business days</span>
+          </div>
+        </div>
+
+        <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "2rem" }}>
+          Residents cannot access governance or blockchain escrow signing features until verified. If you want to audit active projects, you may log out and view the public feed.
+        </p>
+
+        <button className="btn btn-outline-danger w-100" onClick={onLogout}>
+          <LogOut size={16} style={{ marginRight: "0.5rem" }} /> Log Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const SuspendedScreen: React.FC<StatusScreenProps> = ({ profile, onLogout }) => {
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-base)", padding: "2rem" }}>
+      <div style={{ maxWidth: "480px", width: "100%", background: "var(--bg-surface)", border: "1px solid var(--border-glass)", borderRadius: "24px", padding: "3rem 2rem", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.05)", textAlign: "center" }}>
+        <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(220, 38, 38, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem auto", color: "#dc2626" }}>
+          <AlertTriangle size={32} />
+        </div>
+        <h2 style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>Account Suspended</h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "2rem" }}>
+          Your profile (<strong>{profile?.email}</strong>) has been suspended by Barangay Bond administrators due to audit compliance issues or policy violations.
+        </p>
+
+        <div style={{ background: "rgba(220, 38, 38, 0.05)", border: "1px solid rgba(220, 38, 38, 0.2)", borderRadius: "12px", padding: "1rem", color: "#b91c1c", fontSize: "0.85rem", textAlign: "left", marginBottom: "2rem" }}>
+          <strong>Compliance Notice:</strong> Access to projects, escrows, and community voting rights has been disabled. If you believe this is an error, please reach out to your local Barangay Secretariat.
+        </div>
+
+        <button className="btn btn-outline-danger w-100" onClick={onLogout}>
+          <LogOut size={16} style={{ marginRight: "0.5rem" }} /> Log Out
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const ExpiredNoticeScreen: React.FC<{ profile: any; onLogout: () => Promise<void> }> = ({ profile, onLogout }) => {
+  const { acknowledgeExpiration } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  const handleAcknowledge = async () => {
+    setLoading(true);
+    try {
+      await acknowledgeExpiration();
+    } catch (err: any) {
+      alert("Failed to acknowledge expiration: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-base)", padding: "2rem" }}>
+      <div style={{ maxWidth: "480px", width: "100%", background: "var(--bg-surface)", border: "1px solid var(--border-glass)", borderRadius: "24px", padding: "3rem 2rem", boxShadow: "0 20px 25px -5px rgba(0,0,0,0.05)", textAlign: "center" }}>
+        <div style={{ width: "64px", height: "64px", borderRadius: "50%", background: "rgba(245, 158, 11, 0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem auto", color: "#d97706" }}>
+          <AlertTriangle size={32} />
+        </div>
+        <h2 style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--text-primary)", marginBottom: "0.5rem" }}>SK Position Expired</h2>
+        <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "2rem" }}>
+          Your active term as <strong>SK {profile?.position?.toUpperCase()}</strong> in Barangay {profile?.barangayName} has officially ended on <strong>{profile?.termEnd}</strong>.
+        </p>
+
+        <p style={{ fontSize: "0.88rem", color: "var(--text-secondary)", marginBottom: "2rem", lineHeight: 1.5 }}>
+          Your administrative privileges and project creation modules are now closed. You can proceed to transition your profile back to a standard **Verified Youth Resident** to continue auditing and voting on other community milestones.
+        </p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <button className="btn btn-primary w-100" onClick={handleAcknowledge} disabled={loading}>
+            {loading ? "Processing..." : "Acknowledge & Continue as Resident"}
+          </button>
+          <button className="btn btn-outline-navy w-100" onClick={onLogout}>
+            Log Out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AppController: React.FC = () => {
   const [viewState, setViewState] = useState<ViewState>("landing");
   const [isGuest, setIsGuest] = useState(false);
-  const { loading, user } = useAuth();
+  const { loading, user, profile, signOut } = useAuth();
+
+  // Log route transitions and authorizations
+  useEffect(() => {
+    logger.ui(`Route transition: navigating to view = ${viewState.toUpperCase()} (Guest Mode = ${isGuest})`, "AppController");
+  }, [viewState, isGuest]);
+
+  const handleLogout = async () => {
+    await signOut();
+    setIsGuest(false);
+    setViewState("landing");
+  };
 
   // If loading user state from firebase
   if (loading) {
@@ -1350,6 +1929,27 @@ const AppController: React.FC = () => {
   // If already logged in, redirect directly to dashboard
   if (user && viewState === "landing") {
     setViewState("dashboard");
+  }
+
+  // Authentication Gate Status Checks for Logged In users
+  if (user && !isGuest && viewState === "dashboard") {
+    if (!profile) {
+      return (
+        <div className="full-height-spinner">
+          <LoadingSpinner size="lg" label="Loading profile configuration..." />
+        </div>
+      );
+    }
+
+    if (profile.status === "pending") {
+      return <PendingApprovalScreen profile={profile} onLogout={handleLogout} />;
+    }
+    if (profile.status === "suspended") {
+      return <SuspendedScreen profile={profile} onLogout={handleLogout} />;
+    }
+    if (profile.status === "expired") {
+      return <ExpiredNoticeScreen profile={profile} onLogout={handleLogout} />;
+    }
   }
 
   switch (viewState) {
@@ -1370,11 +1970,14 @@ const AppController: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <WalletProvider>
-        <AppController />
-      </WalletProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <WalletProvider>
+          <AppController />
+          <DevConsole />
+        </WalletProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 };
 
