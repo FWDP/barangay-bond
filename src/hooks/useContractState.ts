@@ -13,20 +13,22 @@ export function useContractState() {
   const [error, setError] = useState<string | null>(null);
   
   const { address } = useWallet();
-  const { refreshRoles } = useAuth();
+  const { profile, refreshRoles } = useAuth();
+
+  const targetAddress = address || profile?.walletAddress;
 
   /**
-   * Load the native XLM token balance of the connected user.
+   * Load the native XLM token balance of the connected user or linked profile wallet.
    */
   const loadBalance = useCallback(async () => {
-    if (!address) {
+    if (!targetAddress) {
       setXlmBalance("0.00");
       return;
     }
     try {
       // Query the balance using Horizon accounts endpoint
       const response = await fetch(
-        `https://horizon-testnet.stellar.org/accounts/${address}`
+        `https://horizon-testnet.stellar.org/accounts/${targetAddress}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -38,7 +40,7 @@ export function useContractState() {
     } catch (err) {
       console.error("Failed to load account XLM balance:", err);
     }
-  }, [address]);
+  }, [targetAddress]);
 
   /**
    * Fetch all projects and milestones from the Soroban contract state.
@@ -91,7 +93,7 @@ export function useContractState() {
   // Initial load
   useEffect(() => {
     refresh();
-  }, [refresh, address]);
+  }, [refresh, address, profile?.walletAddress]);
 
   return {
     projects,

@@ -20,7 +20,7 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
   projects,
   onExecute,
 }) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { connected } = useWallet();
 
   const projectsAwaitingVotes = projects.filter(
@@ -185,8 +185,17 @@ export const YouthDashboard: React.FC<YouthDashboardProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div style={{ background: "rgba(0,0,0,0.02)", border: "1px solid #cbd5e1", padding: "0.75rem", borderRadius: "8px", fontSize: "0.8rem", color: "var(--text-secondary)", textAlign: "center", fontWeight: 500 }}>
-                    🔒 Voter signatures restricted to approved residents aged 15-30. Status: {isPending ? "Awaiting Audit Review" : !isAgeEligible ? `Age Ineligible (${age} yrs)` : "Awaiting Verification"}
+                  <div style={{ background: "var(--bg-base)", border: "1px solid var(--border-glass)", padding: "1.25rem", borderRadius: "16px", fontSize: "0.85rem", color: "var(--text-secondary)", textAlign: "left" }}>
+                    <span style={{ fontWeight: 700, color: "var(--text-primary)", display: "block", marginBottom: "0.5rem" }}>🔒 Voting Locked</span>
+                    <p style={{ margin: "0 0 0.8rem 0", fontSize: "0.8rem", color: "var(--text-muted)", lineHeight: 1.4 }}>
+                      Complete all requirements to participate in Barangay Bond voting:
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.8rem" }}>
+                      <div>{profile?.verified ? "🟢 ✓" : "🔴 ✗"} Identity Verified (OCR & Face Audit)</div>
+                      <div>{(profile?.verificationStatus === "approved" || profile?.status === "pending_email_verification" || profile?.status === "active") ? "🟢 ✓" : "🔴 ✗"} Barangay Approved</div>
+                      <div>{user?.emailVerified ? "🟢 ✓" : "🔴 ✗"} Email Verified</div>
+                      <div>{(connected && profile?.walletAddress) ? "🟢 ✓" : "🔴 ✗"} Wallet Connected & Linked</div>
+                    </div>
                   </div>
                 )}
               </div>

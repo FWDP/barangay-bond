@@ -1,0 +1,375 @@
+[WARNING] [AuthContext] 4:09:14 AM [GUEST] Auth session active but status is INACTIVE for: tourkita2025@gmail.com. Marking account inactive and preserving session for recovery.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:420
+next @ firebase_firestore.js?v=fc4ba478:31230
+(anonymous) @ firebase_firestore.js?v=fc4ba478:26342
+setTimeout
+Ia @ firebase_firestore.js?v=fc4ba478:26341
+next @ firebase_firestore.js?v=fc4ba478:26332
+Lu @ firebase_firestore.js?v=fc4ba478:27482
+xu @ firebase_firestore.js?v=fc4ba478:27460
+__PRIVATE_eventManagerOnWatchChange @ firebase_firestore.js?v=fc4ba478:27417
+__PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore @ firebase_firestore.js?v=fc4ba478:28150
+await in __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore
+__PRIVATE_syncEngineApplyRemoteEvent @ firebase_firestore.js?v=fc4ba478:27993
+await in __PRIVATE_syncEngineApplyRemoteEvent
+__PRIVATE_raiseWatchSnapshot @ firebase_firestore.js?v=fc4ba478:26176
+__PRIVATE_onWatchStreamChange @ firebase_firestore.js?v=fc4ba478:26177
+await in __PRIVATE_onWatchStreamChange
+onNext @ firebase_firestore.js?v=fc4ba478:14862
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14817
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14817
+Vt @ firebase_firestore.js?v=fc4ba478:14418
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14551
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14440
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Z.qa @ firebase_firestore.js?v=fc4ba478:2477
+Lb @ firebase_firestore.js?v=fc4ba478:1394
+N.Y @ firebase_firestore.js?v=fc4ba478:1253
+N.ba @ firebase_firestore.js?v=fc4ba478:1204
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Qc @ firebase_firestore.js?v=fc4ba478:1898
+h.Xa @ firebase_firestore.js?v=fc4ba478:1893
+h.Ca @ firebase_firestore.js?v=fc4ba478:1890
+Gc @ firebase_firestore.js?v=fc4ba478:1788
+h.Ma @ firebase_firestore.js?v=fc4ba478:1755
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Pa @ firebase_firestore.js?v=fc4ba478:1742
+Promise.then
+h.send @ firebase_firestore.js?v=fc4ba478:1723
+h.ea @ firebase_firestore.js?v=fc4ba478:1866
+Eb @ firebase_firestore.js?v=fc4ba478:1197
+$c @ firebase_firestore.js?v=fc4ba478:2286
+h.Da @ firebase_firestore.js?v=fc4ba478:2253
+sa @ firebase_firestore.js?v=fc4ba478:622
+Promise.then
+u @ firebase_firestore.js?v=fc4ba478:616
+ac @ firebase_firestore.js?v=fc4ba478:2239
+Lb @ firebase_firestore.js?v=fc4ba478:1391
+N.Y @ firebase_firestore.js?v=fc4ba478:1253
+N.ba @ firebase_firestore.js?v=fc4ba478:1204
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Qc @ firebase_firestore.js?v=fc4ba478:1898
+h.Xa @ firebase_firestore.js?v=fc4ba478:1893
+h.Ca @ firebase_firestore.js?v=fc4ba478:1890
+Gc @ firebase_firestore.js?v=fc4ba478:1788
+h.Ma @ firebase_firestore.js?v=fc4ba478:1755
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Pa @ firebase_firestore.js?v=fc4ba478:1742
+Promise.then
+h.send @ firebase_firestore.js?v=fc4ba478:1723
+h.ea @ firebase_firestore.js?v=fc4ba478:1866
+Eb @ firebase_firestore.js?v=fc4ba478:1197
+Cb @ firebase_firestore.js?v=fc4ba478:1172
+h.Ea @ firebase_firestore.js?v=fc4ba478:2162
+sa @ firebase_firestore.js?v=fc4ba478:622
+Promise.then
+u @ firebase_firestore.js?v=fc4ba478:616
+bc @ firebase_firestore.js?v=fc4ba478:2106
+h.connect @ firebase_firestore.js?v=fc4ba478:2067
+Y.m @ firebase_firestore.js?v=fc4ba478:2425
+_t @ firebase_firestore.js?v=fc4ba478:14528
+send @ firebase_firestore.js?v=fc4ba478:14406
+tn @ firebase_firestore.js?v=fc4ba478:14766
+Tn @ firebase_firestore.js?v=fc4ba478:14886
+__PRIVATE_sendWatchRequest @ firebase_firestore.js?v=fc4ba478:26091
+(anonymous) @ firebase_firestore.js?v=fc4ba478:26127
+__PRIVATE_onWatchStreamOpen @ firebase_firestore.js?v=fc4ba478:26126
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14813
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14813
+It @ firebase_firestore.js?v=fc4ba478:14412
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14554
+setTimeout
+vt @ firebase_firestore.js?v=fc4ba478:14553
+cn @ firebase_firestore.js?v=fc4ba478:14850
+an @ firebase_firestore.js?v=fc4ba478:14810
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14800
+Promise.then
+auth @ firebase_firestore.js?v=fc4ba478:14799
+start @ firebase_firestore.js?v=fc4ba478:14733
+__PRIVATE_startWatchStream @ firebase_firestore.js?v=fc4ba478:26108
+__PRIVATE_remoteStoreListen @ firebase_firestore.js?v=fc4ba478:26072
+__PRIVATE_allocateTargetAndMaybeListen @ firebase_firestore.js?v=fc4ba478:27902
+await in __PRIVATE_allocateTargetAndMaybeListen
+__PRIVATE_syncEngineListen @ firebase_firestore.js?v=fc4ba478:27881
+__PRIVATE_eventManagerListen @ firebase_firestore.js?v=fc4ba478:27366
+(anonymous) @ firebase_firestore.js?v=fc4ba478:28846
+await in (anonymous)
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+__PRIVATE_firestoreClientListen @ firebase_firestore.js?v=fc4ba478:28846
+onSnapshot @ firebase_firestore.js?v=fc4ba478:31247
+(anonymous) @ AuthContext.tsx:325
+(anonymous) @ AuthContext.tsx:354
+(anonymous) @ firebase_auth.js?v=fc4ba478:2356
+Promise.then
+registerStateListener @ firebase_auth.js?v=fc4ba478:2354
+onAuthStateChanged @ firebase_auth.js?v=fc4ba478:2256
+onAuthStateChanged @ firebase_auth.js?v=fc4ba478:5785
+(anonymous) @ AuthContext.tsx:338
+react_stack_bottom_frame @ react-dom_client.js?v=fc4ba478:12900
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+commitHookEffectListMount @ react-dom_client.js?v=fc4ba478:6615
+commitHookPassiveMountEffects @ react-dom_client.js?v=fc4ba478:6650
+reconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7699
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7686
+reconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7711
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7686
+reconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7698
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7686
+reconnectPassiveEffects @ react-dom_client.js?v=fc4ba478:7711
+doubleInvokeEffectsOnFiber @ react-dom_client.js?v=fc4ba478:8922
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=fc4ba478:8915
+commitDoubleInvokeEffectsInDEV @ react-dom_client.js?v=fc4ba478:8930
+flushPassiveEffects @ react-dom_client.js?v=fc4ba478:8807
+(anonymous) @ react-dom_client.js?v=fc4ba478:8560
+performWorkUntilDeadline @ react-dom_client.js?v=fc4ba478:36
+<AuthProvider>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=fc4ba478:193
+(anonymous) @ App.tsx:3472
+react_stack_bottom_frame @ react-dom_client.js?v=fc4ba478:12864
+renderWithHooksAgain @ react-dom_client.js?v=fc4ba478:4266
+renderWithHooks @ react-dom_client.js?v=fc4ba478:4217
+updateFunctionComponent @ react-dom_client.js?v=fc4ba478:5567
+beginWork @ react-dom_client.js?v=fc4ba478:6138
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+performUnitOfWork @ react-dom_client.js?v=fc4ba478:8427
+workLoopSync @ react-dom_client.js?v=fc4ba478:8323
+renderRootSync @ react-dom_client.js?v=fc4ba478:8307
+performWorkOnRoot @ react-dom_client.js?v=fc4ba478:7955
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=fc4ba478:9057
+performWorkUntilDeadline @ react-dom_client.js?v=fc4ba478:36
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=fc4ba478:193
+(anonymous) @ main.tsx:8
+logger.ts:111 [SUCCESS] [Firestore] 4:09:52 AM [tourkita2025@gmail.com - resident] Firestore Read (getDoc) finished: barangays/unassigned (1005ms) {exists: true}
+logger.ts:108 [WARNING] [AuthContext] 4:09:54 AM [tourkita2025@gmail.com - resident] Inner registration steps failed for existing user. Keeping session active.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:910
+await in (anonymous)
+(anonymous) @ App.tsx:1536
+(anonymous) @ App.tsx:1648
+executeDispatch @ react-dom_client.js?v=fc4ba478:9139
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+processDispatchQueue @ react-dom_client.js?v=fc4ba478:9165
+(anonymous) @ react-dom_client.js?v=fc4ba478:9452
+batchedUpdates$1 @ react-dom_client.js?v=fc4ba478:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=fc4ba478:9238
+dispatchEvent @ react-dom_client.js?v=fc4ba478:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=fc4ba478:11299
+logger.ts:105 [ERROR] [AuthContext] 4:09:54 AM [tourkita2025@gmail.com - resident] Registration failed: Missing or insufficient permissions.  
+log @ logger.ts:105
+error @ logger.ts:133
+(anonymous) @ AuthContext.tsx:922
+await in (anonymous)
+(anonymous) @ App.tsx:1536
+(anonymous) @ App.tsx:1648
+executeDispatch @ react-dom_client.js?v=fc4ba478:9139
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+processDispatchQueue @ react-dom_client.js?v=fc4ba478:9165
+(anonymous) @ react-dom_client.js?v=fc4ba478:9452
+batchedUpdates$1 @ react-dom_client.js?v=fc4ba478:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=fc4ba478:9238
+dispatchEvent @ react-dom_client.js?v=fc4ba478:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=fc4ba478:11299
+App.tsx:1567 FirebaseError: Missing or insufficient permissions.
+(anonymous) @ App.tsx:1567
+await in (anonymous)
+(anonymous) @ App.tsx:1648
+executeDispatch @ react-dom_client.js?v=fc4ba478:9139
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+processDispatchQueue @ react-dom_client.js?v=fc4ba478:9165
+(anonymous) @ react-dom_client.js?v=fc4ba478:9452
+batchedUpdates$1 @ react-dom_client.js?v=fc4ba478:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=fc4ba478:9238
+dispatchEvent @ react-dom_client.js?v=fc4ba478:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=fc4ba478:11299
+logger.ts:108 [WARNING] [AuthContext] 4:09:54 AM [tourkita2025@gmail.com - resident] Auth session active but status is INACTIVE for: tourkita2025@gmail.com. Marking account inactive and preserving session for recovery.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:420
+next @ firebase_firestore.js?v=fc4ba478:31230
+(anonymous) @ firebase_firestore.js?v=fc4ba478:26342
+setTimeout
+Ia @ firebase_firestore.js?v=fc4ba478:26341
+next @ firebase_firestore.js?v=fc4ba478:26332
+xu @ firebase_firestore.js?v=fc4ba478:27460
+__PRIVATE_eventManagerOnWatchChange @ firebase_firestore.js?v=fc4ba478:27417
+__PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore @ firebase_firestore.js?v=fc4ba478:28150
+await in __PRIVATE_syncEngineEmitNewSnapsAndNotifyLocalStore
+__PRIVATE_syncEngineRejectFailedWrite @ firebase_firestore.js?v=fc4ba478:28058
+await in __PRIVATE_syncEngineRejectFailedWrite
+(anonymous) @ firebase_firestore.js?v=fc4ba478:26254
+__PRIVATE_executeWithRecovery @ firebase_firestore.js?v=fc4ba478:26200
+__PRIVATE_handleWriteError @ firebase_firestore.js?v=fc4ba478:26254
+__PRIVATE_onWriteStreamClose @ firebase_firestore.js?v=fc4ba478:26256
+close @ firebase_firestore.js?v=fc4ba478:14790
+un @ firebase_firestore.js?v=fc4ba478:14826
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14815
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14815
+At @ firebase_firestore.js?v=fc4ba478:14415
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14550
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14440
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Z.qa @ firebase_firestore.js?v=fc4ba478:2477
+Lb @ firebase_firestore.js?v=fc4ba478:1394
+N.Y @ firebase_firestore.js?v=fc4ba478:1253
+N.ba @ firebase_firestore.js?v=fc4ba478:1204
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Qc @ firebase_firestore.js?v=fc4ba478:1898
+h.Xa @ firebase_firestore.js?v=fc4ba478:1893
+h.Ca @ firebase_firestore.js?v=fc4ba478:1890
+Gc @ firebase_firestore.js?v=fc4ba478:1788
+h.Ma @ firebase_firestore.js?v=fc4ba478:1755
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Ma @ firebase_firestore.js?v=fc4ba478:1756
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Pa @ firebase_firestore.js?v=fc4ba478:1742
+Promise.then
+h.send @ firebase_firestore.js?v=fc4ba478:1723
+h.ea @ firebase_firestore.js?v=fc4ba478:1866
+Eb @ firebase_firestore.js?v=fc4ba478:1197
+$c @ firebase_firestore.js?v=fc4ba478:2286
+h.Da @ firebase_firestore.js?v=fc4ba478:2253
+sa @ firebase_firestore.js?v=fc4ba478:622
+Promise.then
+u @ firebase_firestore.js?v=fc4ba478:616
+ac @ firebase_firestore.js?v=fc4ba478:2239
+Lb @ firebase_firestore.js?v=fc4ba478:1391
+N.Y @ firebase_firestore.js?v=fc4ba478:1253
+N.ba @ firebase_firestore.js?v=fc4ba478:1204
+Va @ firebase_firestore.js?v=fc4ba478:916
+D @ firebase_firestore.js?v=fc4ba478:884
+Qc @ firebase_firestore.js?v=fc4ba478:1898
+h.Xa @ firebase_firestore.js?v=fc4ba478:1893
+h.Ca @ firebase_firestore.js?v=fc4ba478:1890
+Gc @ firebase_firestore.js?v=fc4ba478:1788
+h.Ma @ firebase_firestore.js?v=fc4ba478:1755
+Promise.then
+Ic @ firebase_firestore.js?v=fc4ba478:1746
+h.Pa @ firebase_firestore.js?v=fc4ba478:1742
+Promise.then
+h.send @ firebase_firestore.js?v=fc4ba478:1723
+h.ea @ firebase_firestore.js?v=fc4ba478:1866
+Eb @ firebase_firestore.js?v=fc4ba478:1197
+Cb @ firebase_firestore.js?v=fc4ba478:1172
+h.Ea @ firebase_firestore.js?v=fc4ba478:2162
+sa @ firebase_firestore.js?v=fc4ba478:622
+Promise.then
+u @ firebase_firestore.js?v=fc4ba478:616
+bc @ firebase_firestore.js?v=fc4ba478:2106
+h.connect @ firebase_firestore.js?v=fc4ba478:2067
+Y.m @ firebase_firestore.js?v=fc4ba478:2425
+_t @ firebase_firestore.js?v=fc4ba478:14528
+send @ firebase_firestore.js?v=fc4ba478:14406
+tn @ firebase_firestore.js?v=fc4ba478:14766
+dn @ firebase_firestore.js?v=fc4ba478:14945
+__PRIVATE_onWriteStreamOpen @ firebase_firestore.js?v=fc4ba478:26238
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14813
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14835
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14813
+It @ firebase_firestore.js?v=fc4ba478:14412
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14554
+setTimeout
+vt @ firebase_firestore.js?v=fc4ba478:14553
+cn @ firebase_firestore.js?v=fc4ba478:14929
+an @ firebase_firestore.js?v=fc4ba478:14810
+(anonymous) @ firebase_firestore.js?v=fc4ba478:14800
+Promise.then
+auth @ firebase_firestore.js?v=fc4ba478:14799
+start @ firebase_firestore.js?v=fc4ba478:14733
+start @ firebase_firestore.js?v=fc4ba478:14923
+__PRIVATE_startWriteStream @ firebase_firestore.js?v=fc4ba478:26235
+__PRIVATE_fillWritePipeline @ firebase_firestore.js?v=fc4ba478:26215
+await in __PRIVATE_fillWritePipeline
+__PRIVATE_syncEngineWrite @ firebase_firestore.js?v=fc4ba478:27976
+await in __PRIVATE_syncEngineWrite
+(anonymous) @ firebase_firestore.js?v=fc4ba478:28929
+await in (anonymous)
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29100
+(anonymous) @ firebase_firestore.js?v=fc4ba478:29120
+Promise.then
+el @ firebase_firestore.js?v=fc4ba478:29120
+enqueue @ firebase_firestore.js?v=fc4ba478:29100
+enqueueAndForget @ firebase_firestore.js?v=fc4ba478:29085
+__PRIVATE_firestoreClientWrite @ firebase_firestore.js?v=fc4ba478:28929
+executeWrite @ firebase_firestore.js?v=fc4ba478:31367
+setDoc @ firebase_firestore.js?v=fc4ba478:31150
+(anonymous) @ AuthContext.tsx:868
+await in (anonymous)
+(anonymous) @ App.tsx:1536
+(anonymous) @ App.tsx:1648
+executeDispatch @ react-dom_client.js?v=fc4ba478:9139
+runWithFiberInDEV @ react-dom_client.js?v=fc4ba478:850
+processDispatchQueue @ react-dom_client.js?v=fc4ba478:9165
+(anonymous) @ react-dom_client.js?v=fc4ba478:9452
+batchedUpdates$1 @ react-dom_client.js?v=fc4ba478:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=fc4ba478:9238
+dispatchEvent @ react-dom_client.js?v=fc4ba478:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=fc4ba478:11299
+logger.ts:111 [SUCCESS] [Firestore] 4:09:55 AM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/NmQR4MSRKC6RiMPL2Bin (2963ms) 

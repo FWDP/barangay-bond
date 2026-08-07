@@ -2,19 +2,39 @@ import React, { useState, useEffect, useRef } from "react";
 import { DEBUG_MODE, setDebugMode } from "../config/debug";
 import { logger } from "../utils/logger";
 import type { LogEntry, LogCategory } from "../utils/logger";
-import { X, Search, Download, Clipboard, Trash2, Terminal } from "lucide-react";
+import { X, Search, Download, Clipboard, Trash2, Terminal, Mail, ChevronDown, ChevronUp } from "lucide-react";
+import { db } from "../services/firebase";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 export const DevConsole: React.FC = () => {
   if (!DEBUG_MODE) return null;
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "general" | "auth" | "firestore" | "gemini" | "wallet" | "soroban" | "events" | "errors"
+    "general" | "auth" | "firestore" | "gemini" | "wallet" | "soroban" | "events" | "errors" | "emails"
   >("general");
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [emails, setEmails] = useState<any[]>([]);
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<LogCategory | "ALL">("ALL");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Subscribe to Firestore mail collection for telemetry
+  useEffect(() => {
+    if (!DEBUG_MODE) return;
+    const q = query(collection(db, "mail"), orderBy("timestamp", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() });
+      });
+      setEmails(list);
+    }, (err) => {
+      console.error("DevConsole failed to stream /mail collection:", err);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Subscribe to logger telemetry
   useEffect(() => {
@@ -66,14 +86,14 @@ export const DevConsole: React.FC = () => {
       extension = "json";
     } else if (format === "csv") {
       const headers = "Timestamp,Category,Module,Message,Duration(ms),CorrelationID\n";
-      const rows = filtered.map(l => 
+      const rows = filtered.map(l =>
         `"${l.timestamp}","${l.category}","${l.module}","${l.message.replace(/"/g, '""')}","${l.durationMs ?? ''}","${l.correlationId ?? ''}"`
       ).join("\n");
       content = headers + rows;
       mimeType = "text/csv";
       extension = "csv";
     } else {
-      content = filtered.map(l => 
+      content = filtered.map(l =>
         `[${l.timestamp}] [${l.category}] [${l.module}] ${l.message} ${l.durationMs ? `(${l.durationMs}ms)` : ""}`
       ).join("\n");
     }
@@ -89,7 +109,7 @@ export const DevConsole: React.FC = () => {
   };
 
   const handleCopy = () => {
-    const text = getFilteredLogs().map(l => 
+    const text = getFilteredLogs().map(l =>
       `[${l.timestamp}] [${l.category}] [${l.module}] ${l.message}`
     ).join("\n");
     navigator.clipboard.writeText(text);
@@ -100,10 +120,10 @@ export const DevConsole: React.FC = () => {
   const getFilteredLogs = () => {
     return logs.filter((log) => {
       // 1. Text filter
-      const textMatch = 
+      const textMatch =
         log.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
         log.module.toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       if (!textMatch) return false;
 
       // 2. Category Dropdown filter
@@ -270,7 +290,7 @@ export const DevConsole: React.FC = () => {
             gap: "0.2rem",
             padding: "0.2rem 0.5rem"
           }}>
-            {(["general", "auth", "firestore", "gemini", "wallet", "soroban", "events", "errors"] as const).map((tab) => (
+            {((["general", "auth", "firestore", "gemini", "wallet", "soroban", "events", "errors", ...((import.meta.env.DEV || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") ? ["emails"] : [])]) as ("general" | "auth" | "firestore" | "gemini" | "wallet" | "soroban" | "events" | "errors" | "emails")[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -314,7 +334,7 @@ export const DevConsole: React.FC = () => {
               }}>
                 <strong style={{ color: "#38bdf8", fontSize: "0.82rem" }}>Observability Sandbox Control</strong>
                 <div style={{ fontSize: "0.75rem" }}>
-                  Active Hostname: <span style={{ color: "#f59e0b" }}>{window.location.hostname}</span> | 
+                  Active Hostname: <span style={{ color: "#f59e0b" }}>{window.location.hostname}</span> |
                   Captured Telemetry Log Records: <strong style={{ color: "#10b981" }}>{logs.length}</strong>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginTop: "0.5rem" }}>
@@ -340,7 +360,117 @@ export const DevConsole: React.FC = () => {
               </div>
             )}
 
-            {filteredLogs.length === 0 ? (
+            {activeTab === "emails" ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <div style={{ background: "#0b1329", border: "1px solid #1e293b", borderRadius: "8px", padding: "0.85rem", marginBottom: "0.5rem" }}>
+                  <strong style={{ color: "#38bdf8", fontSize: "0.8rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    <Mail size={14} /> Outbound Telemetry Mail Auditing
+                  </strong>
+                  <p style={{ margin: "0.2rem 0 0 0", color: "#94a3b8", fontSize: "0.7rem" }}>
+                    Listening to Firestore `/mail` writes dispatched to SMTP via the firestore-send-email extension.
+                  </p>
+                </div>
+
+                {emails.length === 0 ? (
+                  <div style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>
+                    No outbound mail documents found in `/mail` collection.
+                  </div>
+                ) : (
+                  emails.map((m) => {
+                    const isExpanded = expandedEmailId === m.id;
+                    const dateStr = m.timestamp ? new Date(m.timestamp).toLocaleString() : "Unknown Time";
+                    const deliveryState = m.delivery?.state || "Queued";
+                    const isSuccess = deliveryState === "SUCCESS";
+                    const isError = deliveryState === "ERROR";
+
+                    return (
+                      <div
+                        key={m.id}
+                        style={{
+                          background: "#0e1626",
+                          border: "1px solid #1e293b",
+                          borderRadius: "8px",
+                          overflow: "hidden"
+                        }}
+                      >
+                        {/* Header bar */}
+                        <div
+                          onClick={() => setExpandedEmailId(isExpanded ? null : m.id)}
+                          style={{
+                            padding: "0.6rem 0.85rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            cursor: "pointer",
+                            background: isExpanded ? "#141f36" : "transparent"
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flex: 1, minWidth: 0 }}>
+                            <span style={{
+                              fontSize: "0.65rem",
+                              fontWeight: 700,
+                              padding: "0.15rem 0.4rem",
+                              borderRadius: "4px",
+                              background: isSuccess ? "rgba(16, 185, 129, 0.15)" : isError ? "rgba(239, 68, 68, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                              color: isSuccess ? "#34d399" : isError ? "#f87171" : "#fbbf24",
+                              flexShrink: 0
+                            }}>
+                              {deliveryState.toUpperCase()}
+                            </span>
+                            <span style={{ color: "#f8fafc", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {m.message?.subject || "(No Subject)"}
+                            </span>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", color: "#64748b", fontSize: "0.7rem", flexShrink: 0 }}>
+                            <span>To: {m.to?.join(", ") || "N/A"}</span>
+                            <span>{dateStr}</span>
+                            {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                          </div>
+                        </div>
+
+                        {/* Content details panel */}
+                        {isExpanded && (
+                          <div style={{ padding: "0.85rem", borderTop: "1px solid #1e293b", background: "#090d16" }}>
+                            {m.delivery?.error && (
+                              <div style={{ background: "rgba(239, 68, 68, 0.05)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: "6px", padding: "0.6rem", color: "#f87171", fontSize: "0.72rem", marginBottom: "0.6rem" }}>
+                                <strong>Delivery Error:</strong> {m.delivery.error}
+                              </div>
+                            )}
+
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "0.75rem", fontSize: "0.72rem", color: "#94a3b8" }}>
+                              <div><strong>Document ID:</strong> {m.id}</div>
+                              {m.delivery?.attempts !== undefined && (
+                                <div><strong>Attempts:</strong> {m.delivery.attempts}</div>
+                              )}
+                              {m.delivery?.endTime && (
+                                <div><strong>End Time:</strong> {new Date(m.delivery.endTime.toDate ? m.delivery.endTime.toDate() : m.delivery.endTime).toLocaleString()}</div>
+                              )}
+                            </div>
+
+                            <strong style={{ color: "#38bdf8", fontSize: "0.72rem", display: "block", marginBottom: "0.4rem" }}>
+                              EMAIL HTML CONTENT PREVIEW
+                            </strong>
+                            <div style={{ border: "1px solid #1e293b", borderRadius: "6px", background: "#ffffff", padding: "0.5rem", overflow: "hidden" }}>
+                              <iframe
+                                title={`preview-${m.id}`}
+                                srcDoc={m.message?.html || ""}
+                                style={{
+                                  width: "100%",
+                                  height: "220px",
+                                  border: "none",
+                                  background: "#ffffff"
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ) : filteredLogs.length === 0 ? (
               <div style={{ color: "#64748b", fontStyle: "italic", textAlign: "center", padding: "2rem" }}>
                 No structured telemetry records found matching the active filters.
               </div>
@@ -357,12 +487,12 @@ export const DevConsole: React.FC = () => {
                 else if (log.category === "AUTH") color = "#f472b6";
 
                 return (
-                  <div 
-                    key={log.id} 
-                    style={{ 
-                      display: "flex", 
+                  <div
+                    key={log.id}
+                    style={{
+                      display: "flex",
                       flexDirection: "column",
-                      padding: "0.35rem 0.5rem", 
+                      padding: "0.35rem 0.5rem",
                       borderLeft: `3px solid ${color}`,
                       background: "rgba(30, 41, 59, 0.15)",
                       borderRadius: "0 4px 4px 0",
@@ -387,10 +517,10 @@ export const DevConsole: React.FC = () => {
 
                     {/* Render execution timings, correlation IDs, or custom metadata */}
                     {(log.durationMs !== undefined || log.correlationId || log.userContext || log.metadata) && (
-                      <div style={{ 
-                        marginTop: "0.2rem", 
-                        paddingLeft: "1rem", 
-                        color: "#64748b", 
+                      <div style={{
+                        marginTop: "0.2rem",
+                        paddingLeft: "1rem",
+                        color: "#64748b",
                         fontSize: "0.72rem",
                         display: "flex",
                         flexDirection: "column",
@@ -411,11 +541,11 @@ export const DevConsole: React.FC = () => {
                           )}
                         </div>
                         {log.metadata && (
-                          <pre style={{ 
-                            margin: "0.2rem 0 0 0", 
-                            background: "#090d16", 
-                            padding: "0.4rem", 
-                            borderRadius: "4px", 
+                          <pre style={{
+                            margin: "0.2rem 0 0 0",
+                            background: "#090d16",
+                            padding: "0.4rem",
+                            borderRadius: "4px",
                             border: "1px solid #1e293b",
                             color: "#94a3b8",
                             overflowX: "auto",

@@ -1,7 +1,7 @@
 import { db } from "./firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { logger } from "../utils/logger";
-import { normalizeName, normalizeAddress, normalizeMobileNumber } from "../utils/normalization";
+import { normalizeName, normalizeAddress } from "../utils/normalization";
 
 export type VerificationRecommendation = "AUTO_ACCEPT" | "MANUAL_REVIEW" | "AUTO_REJECT";
 
@@ -139,7 +139,8 @@ export async function checkDuplicates(
   birthdate: string,
   idNumber: string,
   address: string,
-  mobileNumber: string
+  mobileNumber: string,
+  excludeUid?: string
 ): Promise<{ maxScore: number; matches: DuplicateMatch[] }> {
   try {
     const usersRef = collection(db, "users");
@@ -148,6 +149,9 @@ export async function checkDuplicates(
     const matches: DuplicateMatch[] = [];
 
     snapshot.forEach((docSnapshot) => {
+      if (excludeUid && docSnapshot.id === excludeUid) {
+        return;
+      }
       const u = docSnapshot.data();
       // Exclude matches with missing fields
       const dbName = u.name || "";
@@ -453,21 +457,17 @@ Guidelines:
 
       // School Info scoring (5%)
       let schoolScore = 0;
-      let schoolStatus: "PASS" | "WARNING" | "FAIL" = "FAIL";
       if (input.idType === "student") {
         const regSchool = normalizeAddress(input.schoolName || "");
         const extSchool = normalizeAddress(parsedResult.extractedFields.schoolName || "");
         const schoolFuzzy = getFuzzySimilarity(regSchool, extSchool);
         if (regSchool.toLowerCase() === extSchool.toLowerCase() || schoolFuzzy >= 70) {
           schoolScore = 5;
-          schoolStatus = "PASS";
         } else {
           schoolScore = 0;
-          schoolStatus = "FAIL";
         }
       } else {
         schoolScore = 5;
-        schoolStatus = "PASS";
       }
 
       // Photo Quality scoring (5%)

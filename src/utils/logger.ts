@@ -90,8 +90,8 @@ class UniversalLogger {
     // Call subscribers
     this.listeners.forEach((listener) => listener(entry));
 
-    // Console output in DEBUG_MODE
-    if (DEBUG_MODE) {
+    // Console output in DEBUG_MODE or for status/AI results (success, warning, error, critical, AI)
+    if (DEBUG_MODE || category === "SUCCESS" || category === "WARNING" || category === "ERROR" || category === "CRITICAL" || category === "AI") {
       const timeStr = new Date(entry.timestamp).toLocaleTimeString();
       const userStr = this.userContext ? `[${this.userContext.email} - ${this.userContext.role}]` : "[GUEST]";
       const prefix = `[${entry.category}] [${entry.module}]${options?.functionName ? ` [${options.functionName}]` : ""} ${timeStr} ${userStr}`;
