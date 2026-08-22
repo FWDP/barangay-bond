@@ -1,0 +1,436 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =============================================
+    // HELPER FUNCTIONS
+    // =============================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isSystemAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserRole() == 'system_admin';
+    }
+
+    function isActiveVerifiedVoter() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.emailVerified == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'active';
+    }
+
+    function canResubmitIdentityDocuments() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == false &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive'];
+    }
+
+    function canRecoverInactiveProfile() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'inactive';
+    }
+
+    function canUploadResubmissionDocuments() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (canResubmitIdentityDocuments() || canRecoverInactiveProfile());
+    }
+
+    function canWriteVerificationResults() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive'];
+    }
+
+    function isBarangayAdmin() {
+      return isActiveVerifiedVoter() && getUserRole() == 'barangay_admin';
+    }
+
+    function isAnyAdmin() {
+      return isSystemAdmin() || isBarangayAdmin();
+    }
+
+    // =============================================
+    // USERS COLLECTION
+    // =============================================
+    match /users/{userId} {
+
+      allow create: if isAuthenticated()
+        && request.auth.uid == userId
+        && request.resource.data.uid == userId
+        && (
+          (request.resource.data.role == 'system_admin'
+            && request.resource.data.email.endsWith('@barangay.gov')
+            && request.resource.data.verified == true
+            && request.resource.data.verificationStatus == 'approved'
+            && request.resource.data.status == 'active')
+          ||
+          (request.resource.data.role in ['resident', 'barangay_admin']
+            && request.resource.data.verified == false
+            && request.resource.data.verificationStatus == 'pending'
+            && request.resource.data.status in ['pending', 'pending_email_verification'])
+        );
+
+      allow get: if isOwner(userId)
+        || isSystemAdmin()
+        || (isBarangayAdmin() &&
+            get(/databases/$(database)/documents/users/$(userId)).data.barangayId ==
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId);
+
+      allow list: if isAuthenticated();
+
+      allow update: if
+        // Case 1: Owner updating their own fields (non-admin properties only)
+        (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role', 'requestedRole', 'status', 'position', 'permissions',
+          'verified', 'verificationStatus', 'verificationNotes', 'verifiedBy', 'verifiedAt',
+          'barangayId', 'barangayName', 'barangayMunicipality', 'barangayProvince',
+          'currentlyReviewedBy', 'reviewStartedAt', 'approvedBy', 'approvedAt',
+          'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
+          'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+        ]))
+        // Case 1b: Owner activating their account upon email verification
+        || (isOwner(userId)
+            && resource.data.status == 'pending_email_verification'
+            && request.resource.data.status == 'active'
+            && request.auth.token.email_verified == true
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verificationStatus', 'verificationNotes', 'verifiedBy', 'verifiedAt',
+              'barangayId', 'barangayName', 'barangayMunicipality', 'barangayProvince',
+              'currentlyReviewedBy', 'reviewStartedAt', 'approvedBy', 'approvedAt',
+              'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
+              'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 1b-alt: Owner finishes Firebase email verification and writes the activation summary.
+        // This matches the AuthContext checkEmailVerificationStatus() payload:
+        // emailVerified = true, status = pending | onboarding, activationStatus = active | pending_email_verification,
+        // and an activatedAt timestamp.
+        || (isOwner(userId)
+            && request.auth.token.email_verified == true
+            && resource.data.status in ['pending_email_verification', 'pending', 'onboarding']
+            && resource.data.emailVerified != true
+            && request.resource.data.emailVerified == true
+            && request.resource.data.status in ['pending', 'onboarding']
+            && request.resource.data.activationStatus in ['active', 'pending_email_verification']
+            && request.resource.data.activatedAt is string
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.requestedRole == resource.data.requestedRole
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verificationStatus', 'verificationNotes', 'verifiedBy', 'verifiedAt',
+              'barangayId', 'barangayName', 'barangayMunicipality', 'barangayProvince',
+              'currentlyReviewedBy', 'reviewStartedAt', 'approvedBy', 'approvedAt',
+              'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
+              'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'emailVerified', 'status', 'activationStatus', 'activatedAt'
+            ]))
+        // Case 1c: Owner submitting verification documents / AI audit results
+        || (isOwner(userId)
+            && resource.data.verified == false
+            && request.resource.data.verified == false
+            && (request.resource.data.status in ['pending', 'pending_email_verification'])
+            && (request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected'])
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verifiedBy', 'verifiedAt',
+              'approvedBy', 'approvedAt', 'termStart', 'termEnd',
+              'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
+              'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 1d: Inactive or rejected owner can resubmit profile data for a new verification cycle.
+        // This allows owners to update personal fields while preserving admin-only attributes.
+        || (isOwner(userId)
+            && resource.data.status == 'inactive'
+            && resource.data.verified == false
+            && request.resource.data.verified == false
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.requestedRole == resource.data.requestedRole
+            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected']
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verifiedBy', 'verifiedAt',
+              'approvedBy', 'approvedAt', 'termStart', 'termEnd',
+              'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
+              'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 1e: Inactive accounts can rewrite the profile during recovery even if the
+        // existing record still has verified=true from the previous registration cycle.
+        || (isOwner(userId)
+            && canRecoverInactiveProfile()
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.requestedRole == resource.data.requestedRole
+            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected']
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verifiedBy', 'verifiedAt',
+              'approvedBy', 'approvedAt', 'termStart', 'termEnd',
+              'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
+              'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 1f: Owner-initiated AI verification can persist the verification result fields.
+        // These values are written by executeAIVerification after the document images are uploaded.
+        || (isOwner(userId)
+            && canWriteVerificationResults()
+            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'auto_rejected']
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verifiedBy', 'verifiedAt',
+              'approvedBy', 'approvedAt', 'termStart', 'termEnd',
+              'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 2: System Admin updating a Barangay Admin profile (cannot update residents)
+        || (request.auth.uid != userId && isSystemAdmin() &&
+            (resource.data.requestedRole == 'barangay_admin' || resource.data.role == 'barangay_admin'))
+        // Case 3: Barangay Admin updating a Resident profile inside their own Barangay (cannot escalate roles or modify other LGUs)
+        || (request.auth.uid != userId && isBarangayAdmin() &&
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == resource.data.barangayId &&
+            resource.data.role in ['resident', 'sk_official'] &&
+            request.resource.data.barangayId == resource.data.barangayId &&
+            request.resource.data.role in ['resident', 'sk_official']);
+
+      allow delete: if isSystemAdmin();
+
+      match /terms/{termId} {
+        allow read: if isOwner(userId) || isAnyAdmin();
+        allow create: if isAnyAdmin();
+        allow update, delete: if false;
+      }
+    }
+
+    // =============================================
+    // BARANGAYS COLLECTION
+    // =============================================
+    match /barangays/{barangayId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isSystemAdmin()
+        || (
+          isBarangayAdmin()
+          && request.auth.uid != null
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == barangayId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['residentsCount'])
+          && request.resource.data.residentsCount == resource.data.residentsCount + 1
+        );
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // AUDIT LOGS (IMMUTABLE)
+    // =============================================
+    match /audit_logs/{logId} {
+      allow create: if isAuthenticated();
+      allow read: if isAnyAdmin();
+      allow update, delete: if false;
+    }
+
+    // =============================================
+    // NOTIFICATIONS
+    // =============================================
+    match /notifications/{notifId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.targetUid;
+      allow delete: if false;
+    }
+
+    // =============================================
+    // SESSIONS
+    // =============================================
+    match /sessions/{sessionId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // =============================================
+    // PROJECTS (STANDARDIZED SCALING AVOID EMBED)
+    // =============================================
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow create, update: if (isActiveVerifiedVoter() && (getUserRole() == 'sk_official' || isBarangayAdmin())) || isSystemAdmin();
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // MILESTONES (STANDARDIZED SCALING AVOID EMBED)
+    // =============================================
+    match /milestones/{milestoneId} {
+      allow read: if isAuthenticated();
+      allow create, update: if (isActiveVerifiedVoter() && (getUserRole() == 'sk_official' || isBarangayAdmin())) || isSystemAdmin();
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // VOTES (STANDARDIZED SCALING AVOID EMBED)
+    // =============================================
+    match /votes/{voteId} {
+      allow read: if isAuthenticated();
+      allow create: if isActiveVerifiedVoter() && getUserRole() == 'resident';
+      allow update, delete: if false;
+    }
+
+    // =============================================
+    // SYSTEM SETTINGS
+    // =============================================
+    match /system_settings/{settingId} {
+      allow read: if true;
+      allow write: if isSystemAdmin();
+    }
+
+    // =============================================
+    // AI IDENTITY VERIFICATIONS AUDIT LOGS
+    // =============================================
+    match /ai_verifications/{verificationId} {
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.userId || 
+        (isSystemAdmin() && 
+         (get(/databases/$(database)/documents/users/$(resource.data.userId)).data.requestedRole == 'barangay_admin' || 
+          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.role == 'barangay_admin')) || 
+        (getUserRole() == 'barangay_admin' && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == 
+         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.barangayId &&
+         get(/databases/$(database)/documents/users/$(resource.data.userId)).data.role in ['resident', 'sk_official'])
+      );
+      allow update, delete: if false;
+    }
+
+    // =============================================
+    // BARANGAY ADMIN REQUESTS QUEUE
+    // =============================================
+    match /barangay_admin_requests/{requestId} {
+      allow create: if isAuthenticated() && request.auth.uid == requestId;
+      allow read: if isAuthenticated() && (isSystemAdmin() || request.auth.uid == requestId);
+      allow update: if isSystemAdmin();
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // RESIDENT VERIFICATION QUEUE
+    // =============================================
+    match /resident_verification_queue/{queueId} {
+      allow create: if isAuthenticated() && request.auth.uid == queueId;
+      allow update: if isAuthenticated() && request.auth.uid == queueId && request.resource.data.uid == request.auth.uid && (
+        isSystemAdmin() || canWriteVerificationResults() || canRecoverInactiveProfile()
+      );
+      allow read: if isAuthenticated() && (
+        request.auth.uid == queueId || 
+        (getUserRole() == 'barangay_admin' && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == resource.data.barangayId)
+      );
+      allow update: if isAuthenticated() && (
+        getUserRole() == 'barangay_admin' && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == resource.data.barangayId
+      );
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // SK TERMS OF OFFICE
+    // =============================================
+    match /sk_terms/{termId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && getUserRole() == 'barangay_admin';
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // DUPLICATE REPORTS
+    // =============================================
+    match /duplicate_reports/{reportId} {
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.userId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.matchedUser is string
+        && request.resource.data.status in ['pending', 'reviewed', 'dismissed'];
+      allow read: if isAuthenticated() && (
+        isSystemAdmin() ||
+        getUserRole() == 'barangay_admin' ||
+        request.auth.uid == resource.data.userId
+      );
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() ||
+        (
+          request.auth.uid == resource.data.userId &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.matchedUser == resource.data.matchedUser &&
+          request.resource.data.status in ['pending', 'reviewed', 'dismissed']
+        )
+      );
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // UPLOADED DOCUMENTS METADATA
+    // =============================================
+    match /uploaded_documents/{docId} {
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid && (
+        isSystemAdmin() || canUploadResubmissionDocuments()
+      );
+      allow read: if isAuthenticated() && (
+        isSystemAdmin() || 
+        request.auth.uid == resource.data.uid || 
+        (getUserRole() == 'barangay_admin' && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.barangayId == 
+         get(/databases/$(database)/documents/users/$(resource.data.uid)).data.barangayId)
+      );
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.uid && request.resource.data.uid == request.auth.uid && (
+        isSystemAdmin() || canUploadResubmissionDocuments()
+      );
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.uid && (
+        isSystemAdmin() || canUploadResubmissionDocuments()
+      );
+    }
+
+    // =============================================
+    // WALLET LINKS
+    // =============================================
+    match /wallet_links/{linkId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(linkId);
+      allow update: if isOwner(linkId) && (isActiveVerifiedVoter() || request.resource.data.verified == false);
+      allow delete: if isOwner(linkId) || isSystemAdmin();
+    }
+
+    // =============================================
+    // AI REVIEW QUEUE (BORDERLINE AI DECISIONS)
+    // =============================================
+    match /ai_review_queue/{queueId} {
+      allow create: if isAuthenticated() && request.auth.uid == queueId;
+      allow read: if isAuthenticated() && (isSystemAdmin() || request.auth.uid == queueId);
+      allow update: if isSystemAdmin();
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // MAIL COLLECTION (SMTP trigger emails)
+    // =============================================
+    match /mail/{mailId} {
+      allow create: if true;
+      allow read: if true;
+      allow update, delete: if isSystemAdmin();
+    }
+  }
+}

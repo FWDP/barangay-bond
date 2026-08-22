@@ -10,7 +10,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { STELLAR_CONFIG } from "../configuration/config";
-import type { Project } from "../types";
+import type { Project, Milestone } from "../types";
 
 export const rpcServer = new rpc.Server(STELLAR_CONFIG.rpcUrl);
 
@@ -58,13 +58,11 @@ async function simulateCall(method: string, args: xdr.ScVal[] = []): Promise<any
     throw new Error(`Simulation failed: ${sim.error}`);
   }
 
-  // Under newer SDK versions, sim.results contains the operations results
+  // Under newer SDK versions, sim.result contains the retval directly. Fallback to results array for older versions.
   const simAny = sim as any;
-  if (simAny.results && simAny.results.length > 0) {
-    const retval = simAny.results[0].retval;
-    if (retval) {
-      return scValToNative(retval);
-    }
+  const retval = simAny.result?.retval || (simAny.results?.[0]?.retval);
+  if (retval) {
+    return scValToNative(retval);
   }
 
   return null;
@@ -74,7 +72,7 @@ async function simulateCall(method: string, args: xdr.ScVal[] = []): Promise<any
  * Read the state of a project by ID.
  */
 export async function getProject(projectId: number): Promise<Project> {
-  const result = await simulateCall("get_project", [nativeToScVal(projectId)]);
+  const result = await simulateCall("get_project", [nativeToScVal(projectId, { type: "u32" })]);
   
   // Format the returned struct into our clean TypeScript interface
   return {
@@ -83,16 +81,70 @@ export async function getProject(projectId: number): Promise<Project> {
     description: result.description.toString(),
     budget: (Number(result.budget) / 10000000).toFixed(7), // Convert stroops back to XLM decimal format
     creator: result.creator.toString(),
-    milestone1Proof: result.milestone_1_proof.toString(),
-    milestone1VotesApprove: Number(result.milestone_1_votes_approve),
-    milestone1VotesReject: Number(result.milestone_1_votes_reject),
-    milestone1Status: Number(result.milestone_1_status),
-    milestone2Proof: result.milestone_2_proof.toString(),
-    milestone2VotesApprove: Number(result.milestone_2_votes_approve),
-    milestone2VotesReject: Number(result.milestone_2_votes_reject),
-    milestone2Status: Number(result.milestone_2_status),
+    totalPhases: Number(result.total_phases || result.totalPhases || 1),
+    currentPhase: Number(result.current_phase || result.currentPhase || 1),
     status: Number(result.status),
   };
+}
+
+/**
+ * Read the state of a specific milestone of a project.
+ */
+export async function getMilestone(projectId: number, milestoneIndex: number): Promise<Milestone> {
+  const result = await simulateCall("get_milestone", [
+    nativeToScVal(projectId, { type: "u32" }),
+    nativeToScVal(milestoneIndex, { type: "u32" }),
+  ]);
+
+  return {
+    index: Number(result.index),
+    percentage: Number(result.percentage),
+    proofUrl: result.proof_url ? result.proof_url.toString() : "",
+    votesApprove: Number(result.votes_approve || 0),
+    votesReject: Number(result.votes_reject || 0),
+    status: Number(result.status),
+  };
+}
+
+/**
+ * Read project together with all its on-chain milestones.
+ */
+export async function getProjectWithMilestones(projectId: number): Promise<Project> {
+  const project = await getProject(projectId);
+  const milestones: Milestone[] = [];
+
+  for (let i = 1; i <= project.totalPhases; i++) {
+    try {
+      const ms = await getMilestone(projectId, i);
+      milestones.push(ms);
+    } catch {
+      // Graceful fallback for legacy single-milestone contracts on testnet
+      milestones.push({
+        index: i,
+        percentage: Math.floor(100 / (project.totalPhases || 1)),
+        proofUrl: "",
+        votesApprove: 0,
+        votesReject: 0,
+        status: project.status === 1 ? 2 : 0,
+      });
+    }
+  }
+
+  project.milestones = milestones;
+  
+  // For convenient backwards-compatibility in UI components:
+  const ms1 = milestones.find((m) => m.index === 1);
+  const msCurrent = milestones.find((m) => m.index === project.currentPhase) || milestones[1] || ms1;
+  
+  project.mobilizationPct = ms1?.percentage || 50;
+  if (msCurrent) {
+    project.milestone1Proof = msCurrent.proofUrl || "";
+    project.milestone1VotesApprove = msCurrent.votesApprove || 0;
+    project.milestone1VotesReject = msCurrent.votesReject || 0;
+    project.milestone1Status = msCurrent.status;
+  }
+
+  return project;
 }
 
 /**

@@ -24,9 +24,16 @@ export function normalizeName(name: string): string {
 export function normalizeAddress(address: string): string {
   if (!address) return "";
   return address
-    .replace(/\bbrgy\.?\b/gi, "Barangay")
-    .replace(/\bst\.?\b/gi, "Street")
-    .replace(/\brd\.?\b/gi, "Road")
+    .toLowerCase()
+    .replace(/\bbrgy\.?\b/g, "barangay")
+    .replace(/\bst\.?\b/g, "street")
+    .replace(/\brd\.?\b/g, "road")
+    .replace(/\bave\.?\b/g, "avenue")
+    .replace(/\bblvd\.?\b/g, "boulevard")
+    .replace(/\bhwy\.?\b/g, "highway")
+    .replace(/\bsitio\.?\b/g, "sitio")
+    .replace(/\bpurok\.?\b/g, "purok")
+    .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

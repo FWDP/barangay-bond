@@ -37,7 +37,7 @@ service cloud.firestore {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.verified == false &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive'];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive', 'onboarding'];
     }
 
     function canRecoverInactiveProfile() {
@@ -55,7 +55,7 @@ service cloud.firestore {
     function canWriteVerificationResults() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive'];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status in ['pending', 'pending_email_verification', 'inactive', 'onboarding'];
     }
 
     function isBarangayAdmin() {
@@ -118,14 +118,38 @@ service cloud.firestore {
               'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
               'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
             ]))
+        // Case 1b-alt: Owner finishes Firebase email verification and writes the activation summary.
+        // This matches the AuthContext checkEmailVerificationStatus() payload:
+        // emailVerified = true, status = pending | onboarding, activationStatus = active | pending_email_verification,
+        // and an activatedAt timestamp.
+        || (isOwner(userId)
+            && resource.data.status in ['pending_email_verification', 'pending', 'onboarding']
+            && resource.data.emailVerified != true
+            && request.resource.data.emailVerified == true
+            && request.resource.data.status in ['pending', 'onboarding']
+            && request.resource.data.activationStatus in ['active', 'pending_email_verification']
+            && request.resource.data.activatedAt is string
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.requestedRole == resource.data.requestedRole
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'role', 'requestedRole', 'position', 'permissions',
+              'verified', 'verificationStatus', 'verificationNotes', 'verifiedBy', 'verifiedAt',
+              'barangayId', 'barangayName', 'barangayMunicipality', 'barangayProvince',
+              'currentlyReviewedBy', 'reviewStartedAt', 'approvedBy', 'approvedAt',
+              'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
+              'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
+            ])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'emailVerified', 'status', 'activationStatus', 'activatedAt'
+            ]))
         // Case 1c: Owner submitting verification documents / AI audit results
         || (isOwner(userId)
             && resource.data.verified == false
             && request.resource.data.verified == false
-            && (request.resource.data.status in ['pending', 'pending_email_verification'])
+            && (request.resource.data.status in ['pending', 'pending_email_verification', 'onboarding'])
             && (request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected'])
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'role', 'requestedRole', 'position', 'permissions',
+              'role', 'position', 'permissions',
               'verified', 'verifiedBy', 'verifiedAt',
               'approvedBy', 'approvedAt', 'termStart', 'termEnd',
               'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
@@ -138,11 +162,10 @@ service cloud.firestore {
             && resource.data.verified == false
             && request.resource.data.verified == false
             && request.resource.data.role == resource.data.role
-            && request.resource.data.requestedRole == resource.data.requestedRole
-            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.status in ['pending', 'pending_email_verification', 'onboarding']
             && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected']
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'role', 'requestedRole', 'position', 'permissions',
+              'role', 'position', 'permissions',
               'verified', 'verifiedBy', 'verifiedAt',
               'approvedBy', 'approvedAt', 'termStart', 'termEnd',
               'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
@@ -153,11 +176,10 @@ service cloud.firestore {
         || (isOwner(userId)
             && canRecoverInactiveProfile()
             && request.resource.data.role == resource.data.role
-            && request.resource.data.requestedRole == resource.data.requestedRole
-            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.status in ['pending', 'pending_email_verification', 'onboarding']
             && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'rejected', 'auto_rejected']
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'role', 'requestedRole', 'position', 'permissions',
+              'role', 'position', 'permissions',
               'verified', 'verifiedBy', 'verifiedAt',
               'approvedBy', 'approvedAt', 'termStart', 'termEnd',
               'reviewOutcome', 'resubmissionFields', 'resubmissionReason',
@@ -167,13 +189,28 @@ service cloud.firestore {
         // These values are written by executeAIVerification after the document images are uploaded.
         || (isOwner(userId)
             && canWriteVerificationResults()
-            && request.resource.data.status in ['pending', 'pending_email_verification']
+            && request.resource.data.status in ['pending', 'pending_email_verification', 'onboarding']
             && request.resource.data.verificationStatus in ['pending', 'ai_verified', 'auto_rejected']
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-              'role', 'requestedRole', 'position', 'permissions',
+              'role', 'position', 'permissions',
               'verified', 'verifiedBy', 'verifiedAt',
               'approvedBy', 'approvedAt', 'termStart', 'termEnd',
               'lastDecisionBy', 'lastDecisionAt'
+            ]))
+        // Case 1g: Owner downgrading themselves to resident upon SK term expiration
+        || (isOwner(userId)
+            && resource.data.role == 'sk_official'
+            && request.resource.data.role == 'resident'
+            && request.resource.data.position == 'none'
+            && request.resource.data.status == 'active'
+            && request.resource.data.permissions.size() == 0
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'requestedRole', 'verified', 'verificationStatus',
+              'verificationNotes', 'verifiedBy', 'verifiedAt', 'barangayId',
+              'barangayName', 'barangayMunicipality', 'barangayProvince',
+              'currentlyReviewedBy', 'reviewStartedAt', 'approvedBy', 'approvedAt',
+              'termStart', 'termEnd', 'reviewOutcome', 'resubmissionFields',
+              'resubmissionReason', 'resubmissionSuggestedReason', 'lastDecisionBy', 'lastDecisionAt'
             ]))
         // Case 2: System Admin updating a Barangay Admin profile (cannot update residents)
         || (request.auth.uid != userId && isSystemAdmin() &&
@@ -200,7 +237,16 @@ service cloud.firestore {
     match /barangays/{barangayId} {
       allow read: if true;
       allow create: if isAuthenticated();
-      allow update, delete: if isSystemAdmin();
+      allow update: if isSystemAdmin()
+        || (
+          isAuthenticated()
+          && (
+            getUserRole() == 'barangay_admin' ||
+            getUserRole() == 'system_admin' ||
+            isBarangayAdmin()
+          )
+        );
+      allow delete: if isSystemAdmin();
     }
 
     // =============================================
@@ -290,7 +336,7 @@ service cloud.firestore {
     match /barangay_admin_requests/{requestId} {
       allow create: if isAuthenticated() && request.auth.uid == requestId;
       allow read: if isAuthenticated() && (isSystemAdmin() || request.auth.uid == requestId);
-      allow update: if isSystemAdmin();
+      allow update: if isSystemAdmin() || (isAuthenticated() && request.auth.uid == requestId && request.resource.data.status == 'pending');
       allow delete: if isSystemAdmin();
     }
 
@@ -327,13 +373,26 @@ service cloud.firestore {
     // DUPLICATE REPORTS
     // =============================================
     match /duplicate_reports/{reportId} {
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated()
+        && request.auth.uid == request.resource.data.userId
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.matchedUser is string
+        && request.resource.data.status in ['pending', 'reviewed', 'dismissed'];
       allow read: if isAuthenticated() && (
-        isSystemAdmin() || 
-        getUserRole() == 'barangay_admin' || 
+        isSystemAdmin() ||
+        getUserRole() == 'barangay_admin' ||
         request.auth.uid == resource.data.userId
       );
-      allow update, delete: if isSystemAdmin();
+      allow update: if isAuthenticated() && (
+        isSystemAdmin() ||
+        (
+          request.auth.uid == resource.data.userId &&
+          request.resource.data.userId == resource.data.userId &&
+          request.resource.data.matchedUser == resource.data.matchedUser &&
+          request.resource.data.status in ['pending', 'reviewed', 'dismissed']
+        )
+      );
+      allow delete: if isSystemAdmin();
     }
 
     // =============================================
@@ -341,7 +400,9 @@ service cloud.firestore {
     // =============================================
     match /uploaded_documents/{docId} {
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.uid && (
-        isSystemAdmin() || canUploadResubmissionDocuments()
+        isSystemAdmin() || 
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        canUploadResubmissionDocuments()
       );
       allow read: if isAuthenticated() && (
         isSystemAdmin() || 
@@ -351,10 +412,14 @@ service cloud.firestore {
          get(/databases/$(database)/documents/users/$(resource.data.uid)).data.barangayId)
       );
       allow update: if isAuthenticated() && request.auth.uid == resource.data.uid && request.resource.data.uid == request.auth.uid && (
-        isSystemAdmin() || canUploadResubmissionDocuments()
+        isSystemAdmin() || 
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        canUploadResubmissionDocuments()
       );
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.uid && (
-        isSystemAdmin() || canUploadResubmissionDocuments()
+        isSystemAdmin() || 
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        canUploadResubmissionDocuments()
       );
     }
 
@@ -363,8 +428,7 @@ service cloud.firestore {
     // =============================================
     match /wallet_links/{linkId} {
       allow read: if isAuthenticated();
-      allow create: if isOwner(linkId);
-      allow update: if isOwner(linkId) && (isActiveVerifiedVoter() || request.resource.data.verified == false);
+      allow create, update: if isOwner(linkId);
       allow delete: if isOwner(linkId) || isSystemAdmin();
     }
 
@@ -379,11 +443,21 @@ service cloud.firestore {
     }
 
     // =============================================
+    // PROJECT PROPOSALS (Barangay Admin Approval Gate)
+    // =============================================
+    match /project_proposals/{proposalId} {
+      allow read, list: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isSystemAdmin();
+    }
+
+    // =============================================
     // MAIL COLLECTION (SMTP trigger emails)
     // =============================================
     match /mail/{mailId} {
       allow create: if true;
-      allow read: if true;
+      allow read, list: if isAuthenticated();
       allow update, delete: if isSystemAdmin();
     }
   }

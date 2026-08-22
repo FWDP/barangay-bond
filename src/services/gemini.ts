@@ -99,6 +99,12 @@ export function normalizeText(text: string): string {
     .trim()
     .replace(/\bbrgy\.?\b/g, "barangay")
     .replace(/\bsto\.?\b/g, "santo")
+    .replace(/\bst\.?\b/g, "street")
+    .replace(/\brd\.?\b/g, "road")
+    .replace(/\bave\.?\b/g, "avenue")
+    .replace(/\bblvd\.?\b/g, "boulevard")
+    .replace(/\bsitio\.?\b/g, "sitio")
+    .replace(/\bpurok\.?\b/g, "purok")
     .replace(/\s+/g, " ")
     .replace(/[^a-z0-9\s]/g, "");
 }

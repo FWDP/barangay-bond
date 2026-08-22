@@ -12,14 +12,14 @@ const network =
     ? Networks.TESTNET
     : Networks.PUBLIC;
 
-// Initialize the static class once
+// Initialize the static class once with support for desktop extensions and mobile web/app linking
 StellarWalletsKit.init({
   network,
   modules: [
     new FreighterModule(),
-    new xBullModule(),
     new AlbedoModule(),
     new LobstrModule(),
+    new xBullModule(),
   ],
 });
 
@@ -29,14 +29,51 @@ export interface ConnectionResult {
 }
 
 /**
+ * Safely check if a wallet module is selected in memory without throwing an uncaught getter exception.
+ * If no active module is loaded, automatically set the wallet module or prompt the selection modal.
+ */
+export async function ensureWalletModuleSet(walletId?: string): Promise<boolean> {
+  let isSet = false;
+  try {
+    isSet = !!StellarWalletsKit.selectedModule;
+  } catch (e) {
+    isSet = false;
+  }
+
+  if (isSet) return true;
+
+  const targetWalletId = walletId || localStorage.getItem("wallet_id") || "freighter";
+  logger.info(`[Wallet] Active wallet module not set in memory. Attempting setWallet(${targetWalletId})...`, "Wallet");
+
+  try {
+    StellarWalletsKit.setWallet(targetWalletId);
+    return true;
+  } catch (err) {
+    logger.info("[Wallet] setWallet fallback failed. Prompting wallet authModal...", "Wallet");
+    await StellarWalletsKit.authModal();
+    return true;
+  }
+}
+
+/**
  * Open the wallet kit modal to connect a Stellar wallet.
  */
 export async function connectWallet(): Promise<ConnectionResult> {
+  try {
+    await StellarWalletsKit.disconnect();
+  } catch (e) {
+    // Ignore harmless disconnect errors on cold start
+  }
+
   // authModal opens the selection modal and returns the connected address
   const result = await StellarWalletsKit.authModal();
 
-  // Get the selected wallet ID from the active static module
-  const walletId = StellarWalletsKit.selectedModule?.productId || "freighter";
+  let walletId = "freighter";
+  try {
+    walletId = StellarWalletsKit.selectedModule?.productId || "freighter";
+  } catch (e) {
+    walletId = "freighter";
+  }
 
   return {
     address: result.address,
@@ -58,11 +95,33 @@ export async function signTransaction(
   xdr: string,
   userAddress: string
 ): Promise<string> {
-  const result = await StellarWalletsKit.signTransaction(xdr, {
-    networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-    address: userAddress,
-  });
-  return result.signedTxXdr;
+  // Ensure wallet module is set without throwing uncaught getter exceptions
+  await ensureWalletModuleSet();
+
+  try {
+    const result = await StellarWalletsKit.signTransaction(xdr, {
+      networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+      address: userAddress,
+    });
+    return result.signedTxXdr;
+  } catch (err: any) {
+    const errorStr = (err?.message || "") + " " + (err?.code || "") + " " + JSON.stringify(err || {});
+    if (
+      errorStr.includes("Please set the wallet first") ||
+      errorStr.includes("not connected") ||
+      errorStr.includes("Freighter is not connected") ||
+      errorStr.includes("-3")
+    ) {
+      logger.info("[Wallet] Wallet connection lost or not authorized. Prompting wallet modal...", "Wallet");
+      const authRes = await StellarWalletsKit.authModal();
+      const result = await StellarWalletsKit.signTransaction(xdr, {
+        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+        address: authRes.address || userAddress,
+      });
+      return result.signedTxXdr;
+    }
+    throw err;
+  }
 }
 
 /**

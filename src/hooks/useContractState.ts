@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { getProject, getProjectCount } from "../rpc/rpc";
+import { getProjectWithMilestones, getProjectCount } from "../rpc/rpc";
 import type { Project, EventLog } from "../types";
 import { eventsListener } from "../events/events";
 import { useWallet } from "../contexts/WalletContext";
@@ -54,7 +54,7 @@ export function useContractState() {
       
       for (let i = 1; i <= count; i++) {
         try {
-          const proj = await getProject(i);
+          const proj = await getProjectWithMilestones(i);
           loadedProjects.push(proj);
         } catch (err) {
           console.error(`Failed to load project #${i}:`, err);

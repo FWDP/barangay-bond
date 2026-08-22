@@ -42,42 +42,40 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div style={{
-          minHeight: "100vh",
+          minHeight: "100dvh",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0f172a",
-          color: "#f8fafc",
+          background: "var(--bg-base)",
+          color: "var(--text-primary)",
           padding: "2rem",
-          fontFamily: "Inter, system-ui, sans-serif",
+          fontFamily: "var(--font-main)",
           textAlign: "center"
         }}>
-          <div style={{
-            background: "#1e293b",
-            border: "1px solid #ef4444",
-            borderRadius: "16px",
+          <div className="bank-card" style={{
+            border: "1px solid var(--accent-danger)",
             padding: "2.5rem",
             maxWidth: "600px",
             width: "100%",
-            boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)"
+            boxShadow: "var(--shadow-floating)"
           }}>
-            <h2 style={{ color: "#ef4444", fontWeight: 800, fontSize: "1.8rem", margin: "0 0 1rem 0" }}>System Crash Shield</h2>
-            <p style={{ color: "#94a3b8", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+            <h2 style={{ color: "var(--accent-danger)", fontWeight: 800, fontSize: "1.8rem", margin: "0 0 1rem 0" }}>System Crash Shield</h2>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
               Barangay Bond sandbox safety caught a critical UI rendering error. The execution state details have been logged to the Developer Console.
             </p>
             
             <div style={{
-              background: "#0f172a",
-              borderRadius: "8px",
+              background: "var(--bg-elevated)",
+              borderRadius: "12px",
               padding: "1rem",
               textAlign: "left",
               maxHeight: "200px",
               overflowY: "auto",
               fontSize: "0.8rem",
-              fontFamily: "monospace",
-              color: "#f1f5f9",
-              border: "1px solid #334155",
+              fontFamily: "var(--font-mono)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-primary)",
               marginBottom: "1.5rem"
             }}>
               <strong>Error:</strong> {this.state.error?.toString()}<br/>
@@ -86,32 +84,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
               <button 
+                className="btn btn-danger"
                 onClick={() => window.location.reload()}
-                style={{
-                  background: "#ef4444",
-                  color: "#ffffff",
-                  border: "none",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: "8px",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  fontSize: "0.9rem"
-                }}
               >
                 Reload Application
               </button>
               <button 
+                className="btn btn-outline"
                 onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-                style={{
-                  background: "transparent",
-                  color: "#94a3b8",
-                  border: "1px solid #475569",
-                  padding: "0.75rem 1.5rem",
-                  borderRadius: "8px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "0.9rem"
-                }}
               >
                 Try Re-render
               </button>

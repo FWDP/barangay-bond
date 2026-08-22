@@ -1,0 +1,354 @@
+[AUTH] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Registration signUp request started for: tourkita2025@gmail.com (resident)  {name: 'Renz Jericho Roxas Buday', birthdate: '2004-04-24', barangayName: 'San Pascual', idType: 'national', idNumber: '2802-9089-3198-2148'}
+logger.ts:123 [DEBUG] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Layer 1 rule validation: Calculated resident age is 22 yrs  
+logger.ts:123 [DATABASE] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Reading barangays/unassigned from Firestore  
+logger.ts:123 [DATABASE] [Firestore] 2:36:46 PM [tourkita2025@gmail.com - resident] Firestore Read (getDoc) started: barangays/unassigned  
+logger.ts:111 [SUCCESS] [Firestore] 2:36:46 PM [tourkita2025@gmail.com - resident] Firestore Read (getDoc) finished: barangays/unassigned (295ms) {exists: true}
+logger.ts:123 [DEBUG] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Found existing active auth session for tourkita2025@gmail.com. Bypassing createUserWithEmailAndPassword.  
+logger.ts:123 [DATABASE] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Preparing write for users/wUgLRqNDf7ekSbKTSqzAPyQgbg42 in Firestore  
+logger.ts:123 [DATABASE] [Firestore] 2:36:46 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:36:46 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:108 [WARNING] [AuthContext] 2:36:46 PM [tourkita2025@gmail.com - resident] Existence check failed for users/wUgLRqNDf7ekSbKTSqzAPyQgbg42. Falling back to merge write. Error: Missing or insufficient permissions.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:955
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+logger.ts:123 [DATABASE] [Firestore] 2:36:46 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [DATABASE] [Firestore] 2:36:46 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:36:46 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:111 [SUCCESS] [Firestore] 2:36:47 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/UMfyKu6KSE8UIYIWRT8T (1115ms) 
+logger.ts:108 [WARNING] [AuthContext] 2:36:47 PM [tourkita2025@gmail.com - resident] Inner registration steps failed for existing user. Keeping session active.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:999
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+logger.ts:105 [ERROR] [AuthContext] 2:36:47 PM [tourkita2025@gmail.com - resident] Registration failed: Missing or insufficient permissions.  
+log @ logger.ts:105
+error @ logger.ts:133
+(anonymous) @ AuthContext.tsx:1011
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+App.tsx:1787 FirebaseError: Missing or insufficient permissions.
+(anonymous) @ App.tsx:1787
+await in (anonymous)
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+logger.ts:123 [DATABASE] [Firestore] 2:36:47 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:36:47 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:111 [SUCCESS] [Firestore] 2:36:49 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/Rkkr5HfWXkaKBZQuhVYV (2177ms) 
+logger.ts:111 [SUCCESS] [Firestore] 2:36:49 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/u27wwdLXCySdlKuhv066 (2203ms) 
+logger.ts:111 [SUCCESS] [Firestore] 2:36:49 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/Nf4VY3YHeFs6jfb5ysOA (1331ms) 
+logger.ts:123 [AUTH] [AuthContext] 2:37:07 PM [tourkita2025@gmail.com - resident] Registration signUp request started for: tourkita2025@gmail.com (resident)  {name: 'Renz Jericho Roxas Buday', birthdate: '2004-04-24', barangayName: 'San Pascual', idType: 'national', idNumber: '2802-9089-3198-2148'}
+logger.ts:123 [DEBUG] [AuthContext] 2:37:07 PM [tourkita2025@gmail.com - resident] Layer 1 rule validation: Calculated resident age is 22 yrs  
+logger.ts:123 [DATABASE] [AuthContext] 2:37:07 PM [tourkita2025@gmail.com - resident] Reading barangays/unassigned from Firestore  
+logger.ts:123 [DATABASE] [Firestore] 2:37:07 PM [tourkita2025@gmail.com - resident] Firestore Read (getDoc) started: barangays/unassigned  
+logger.ts:111 [SUCCESS] [Firestore] 2:37:08 PM [tourkita2025@gmail.com - resident] Firestore Read (getDoc) finished: barangays/unassigned (166ms) {exists: true}
+logger.ts:123 [DEBUG] [AuthContext] 2:37:08 PM [tourkita2025@gmail.com - resident] Found existing active auth session for tourkita2025@gmail.com. Bypassing createUserWithEmailAndPassword.  
+logger.ts:123 [DATABASE] [AuthContext] 2:37:08 PM [tourkita2025@gmail.com - resident] Preparing write for users/wUgLRqNDf7ekSbKTSqzAPyQgbg42 in Firestore  
+logger.ts:123 [DATABASE] [Firestore] 2:37:08 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:37:08 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:108 [WARNING] [AuthContext] 2:37:08 PM [tourkita2025@gmail.com - resident] Existence check failed for users/wUgLRqNDf7ekSbKTSqzAPyQgbg42. Falling back to merge write. Error: Missing or insufficient permissions.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:955
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+<AuthPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:3671
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=85a977ea:9057
+performWorkUntilDeadline @ react-dom_client.js?v=85a977ea:36
+logger.ts:123 [DATABASE] [Firestore] 2:37:08 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [DATABASE] [Firestore] 2:37:08 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:37:08 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:111 [SUCCESS] [Firestore] 2:37:09 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/TwIhTkVCwtOsxiWHNQP4 (1541ms) 
+logger.ts:108 [WARNING] [AuthContext] 2:37:09 PM [tourkita2025@gmail.com - resident] Inner registration steps failed for existing user. Keeping session active.  
+log @ logger.ts:108
+warn @ logger.ts:132
+(anonymous) @ AuthContext.tsx:999
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+<AuthPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:3671
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=85a977ea:9057
+performWorkUntilDeadline @ react-dom_client.js?v=85a977ea:36
+logger.ts:105 [ERROR] [AuthContext] 2:37:09 PM [tourkita2025@gmail.com - resident] Registration failed: Missing or insufficient permissions.  
+log @ logger.ts:105
+error @ logger.ts:133
+(anonymous) @ AuthContext.tsx:1011
+await in (anonymous)
+(anonymous) @ App.tsx:1756
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+<AuthPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:3671
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=85a977ea:9057
+performWorkUntilDeadline @ react-dom_client.js?v=85a977ea:36
+App.tsx:1787 FirebaseError: Missing or insufficient permissions.
+(anonymous) @ App.tsx:1787
+await in (anonymous)
+(anonymous) @ App.tsx:1885
+executeDispatch @ react-dom_client.js?v=85a977ea:9139
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+processDispatchQueue @ react-dom_client.js?v=85a977ea:9165
+(anonymous) @ react-dom_client.js?v=85a977ea:9452
+batchedUpdates$1 @ react-dom_client.js?v=85a977ea:2042
+dispatchEventForPluginEventSystem @ react-dom_client.js?v=85a977ea:9238
+dispatchEvent @ react-dom_client.js?v=85a977ea:11317
+dispatchDiscreteEvent @ react-dom_client.js?v=85a977ea:11299
+<button>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:2477
+(anonymous) @ App.tsx:2693
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performSyncWorkOnRoot @ react-dom_client.js?v=85a977ea:9065
+flushSyncWorkAcrossRoots_impl @ react-dom_client.js?v=85a977ea:8982
+processRootScheduleInMicrotask @ react-dom_client.js?v=85a977ea:9003
+(anonymous) @ react-dom_client.js?v=85a977ea:9076
+<AuthPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=dbf67213:193
+(anonymous) @ App.tsx:3671
+react_stack_bottom_frame @ react-dom_client.js?v=85a977ea:12864
+renderWithHooksAgain @ react-dom_client.js?v=85a977ea:4266
+renderWithHooks @ react-dom_client.js?v=85a977ea:4217
+updateFunctionComponent @ react-dom_client.js?v=85a977ea:5567
+beginWork @ react-dom_client.js?v=85a977ea:6138
+runWithFiberInDEV @ react-dom_client.js?v=85a977ea:850
+performUnitOfWork @ react-dom_client.js?v=85a977ea:8427
+workLoopSync @ react-dom_client.js?v=85a977ea:8323
+renderRootSync @ react-dom_client.js?v=85a977ea:8307
+performWorkOnRoot @ react-dom_client.js?v=85a977ea:7955
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=85a977ea:9057
+performWorkUntilDeadline @ react-dom_client.js?v=85a977ea:36
+logger.ts:123 [DATABASE] [Firestore] 2:37:09 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) started: sessions  
+logger.ts:123 [INFO] [AUTH] 2:37:09 PM [tourkita2025@gmail.com - resident] Observability active user context set to: tourkita2025@gmail.com (resident)  
+logger.ts:111 [SUCCESS] [Firestore] 2:37:10 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/akWMI5fi12C8NDgithcx (2146ms) 
+logger.ts:111 [SUCCESS] [Firestore] 2:37:10 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/10nvyt5DZm3VlXQWRS1y (2182ms) 
+logger.ts:111 [SUCCESS] [Firestore] 2:37:10 PM [tourkita2025@gmail.com - resident] Firestore Add (addDoc) finished: sessions/A4RJAOf65VaN06DU2E9b (861ms) 

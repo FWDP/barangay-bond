@@ -1,4 +1,4 @@
-import { nativeToScVal, Transaction, xdr } from "@stellar/stellar-sdk";
+import { nativeToScVal, Transaction, Keypair, xdr } from "@stellar/stellar-sdk";
 import { buildWriteTransaction, rpcServer } from "../rpc/rpc";
 import { signTransaction } from "../wallet/wallet";
 import type { TransactionStatus } from "../types";
@@ -64,7 +64,8 @@ async function executeContractWrite(
   userAddress: string,
   methodName: string,
   args: xdr.ScVal[],
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const correlationId = `TX-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const startTime = Date.now();
@@ -103,10 +104,18 @@ async function executeContractWrite(
 
   let signedTxXdr: string;
   try {
-    const rawXdr = preparedTx.toXDR();
-    logger.blockchain("Awaiting user signature request via linked wallet...", "Wallet", { correlationId });
-    signedTxXdr = await signTransaction(rawXdr, userAddress);
-    logger.success("Transaction signed successfully by wallet extension.", "Wallet", { correlationId });
+    if (secretKey) {
+      logger.blockchain("Signing transaction via in-app wallet...", "Wallet", { correlationId });
+      const kp = Keypair.fromSecret(secretKey);
+      preparedTx.sign(kp);
+      signedTxXdr = preparedTx.toXDR();
+      logger.success("Transaction signed successfully by in-app wallet.", "Wallet", { correlationId });
+    } else {
+      const rawXdr = preparedTx.toXDR();
+      logger.blockchain("Awaiting user signature request via linked wallet...", "Wallet", { correlationId });
+      signedTxXdr = await signTransaction(rawXdr, userAddress);
+      logger.success("Transaction signed successfully by wallet extension.", "Wallet", { correlationId });
+    }
   } catch (err: any) {
     logger.warn(`Transaction signing canceled or failed: ${err.message}`, "Wallet", { correlationId });
     onStatusChange("WalletCancelled", undefined, err.message || "Transaction signing rejected by wallet.");
@@ -146,6 +155,7 @@ export async function verifyResident(
   onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
 ): Promise<string> {
   const args = [
+    nativeToScVal(adminAddress, { type: "address" }),
     nativeToScVal(residentAddress, { type: "address" }),
     nativeToScVal(isYouth),
   ];
@@ -162,6 +172,7 @@ export async function verifySKOfficial(
   onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
 ): Promise<string> {
   const args = [
+    nativeToScVal(adminAddress, { type: "address" }),
     nativeToScVal(officialAddress, { type: "address" }),
     nativeToScVal(isSK),
   ];
@@ -169,24 +180,28 @@ export async function verifySKOfficial(
 }
 
 /**
- * Create a new governance project with lock budget (SK Official only).
+ * Create a new governance project with locked budget and dynamic milestone tranches (Admin deploys).
  */
 export async function createProject(
+  adminAddress: string,
   skAddress: string,
   projectName: string,
   budgetAmountXlm: number,
   description: string,
+  milestonePercentages: number[],
   onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
 ): Promise<string> {
   // Convert XLM to stroops (7 decimal places)
   const budgetStroops = BigInt(Math.round(budgetAmountXlm * 10000000));
   const args = [
+    nativeToScVal(adminAddress, { type: "address" }),
     nativeToScVal(skAddress, { type: "address" }),
     nativeToScVal(projectName),
     nativeToScVal(budgetStroops, { type: "i128" }),
     nativeToScVal(description),
+    nativeToScVal(milestonePercentages.map((m) => nativeToScVal(m, { type: "u32" }))),
   ];
-  return executeContractWrite(skAddress, "create_project", args, onStatusChange);
+  return executeContractWrite(adminAddress, "create_project", args, onStatusChange);
 }
 
 /**
@@ -216,7 +231,8 @@ export async function voteMilestone(
   projectId: number,
   milestoneIndex: number,
   approve: boolean,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const args = [
     nativeToScVal(voterAddress, { type: "address" }),
@@ -224,7 +240,7 @@ export async function voteMilestone(
     nativeToScVal(milestoneIndex, { type: "u32" }),
     nativeToScVal(approve),
   ];
-  return executeContractWrite(voterAddress, "vote_milestone", args, onStatusChange);
+  return executeContractWrite(voterAddress, "vote_milestone", args, onStatusChange, secretKey);
 }
 
 /**

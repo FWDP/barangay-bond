@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import type { TransactionStatus } from "../types";
 import { LoadingSpinner } from "./LoadingSpinner";
+import { CheckCircle2, XCircle, AlertTriangle, ExternalLink, Copy, Check } from "lucide-react";
 
 interface TransactionLifecycleModalProps {
   status: TransactionStatus;
@@ -31,66 +32,66 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
     switch (status) {
       case "Pending":
         return {
-          title: "Preparing Transaction",
-          description: "Simulating operations, allocating footprints, and fetching fees on Stellar Testnet...",
-          className: "status-pending",
+          title: "Preparing Soroban Transaction",
+          description: "Simulating operations and fetching cryptographic footprints on Stellar Testnet...",
+          badgeColor: "rgba(0, 125, 254, 0.15)",
           icon: <LoadingSpinner size="md" />,
         };
       case "Submitted":
         return {
           title: "Submitting to Stellar RPC",
           description: "Waiting for ledger validation and consensus confirmation on-chain...",
-          className: "status-submitted",
+          badgeColor: "rgba(0, 125, 254, 0.15)",
           icon: <LoadingSpinner size="md" />,
         };
       case "Confirmed":
         return {
-          title: "Transaction Confirmed!",
-          description: "The action was successfully recorded on the Stellar ledger.",
-          className: "status-confirmed",
-          icon: <span className="status-large-icon success-icon">✓</span>,
+          title: "Transaction Successful!",
+          description: "The escrow action was cryptographically confirmed and sealed on Stellar Soroban.",
+          badgeColor: "var(--accent-green-soft)",
+          icon: <CheckCircle2 size={40} style={{ color: "var(--accent-green)" }} />,
         };
       case "Failed":
         return {
           title: "Transaction Failed",
           description: "The transaction was executed but failed on-chain or submission was rejected.",
-          className: "status-failed",
-          icon: <span className="status-large-icon error-icon">✗</span>,
+          badgeColor: "var(--accent-danger-soft)",
+          icon: <XCircle size={40} style={{ color: "var(--accent-danger)" }} />,
         };
       case "Rejected":
       case "WalletCancelled":
         return {
-          title: "Signature Rejected",
+          title: "Signature Cancelled",
           description: "You cancelled the signing request in your wallet extension.",
-          className: "status-cancelled",
-          icon: <span className="status-large-icon warning-icon">!</span>,
+          badgeColor: "rgba(245, 158, 11, 0.15)",
+          icon: <AlertTriangle size={40} style={{ color: "#f59e0b" }} />,
         };
       case "Expired":
         return {
           title: "Transaction Expired",
           description: "The network was unable to confirm the transaction in the required timeframe. Please try again.",
-          className: "status-expired",
-          icon: <span className="status-large-icon error-icon">⌛</span>,
+          badgeColor: "var(--accent-danger-soft)",
+          icon: <AlertTriangle size={40} style={{ color: "var(--accent-danger)" }} />,
         };
       case "SimulationError":
         return {
           title: "Simulation Failure",
-          description: "The transaction simulation failed. This usually means the contract requirements were not met (e.g. unauthorized role).",
-          className: "status-sim-error",
-          icon: <span className="status-large-icon error-icon">⚠</span>,
+          description: "The transaction simulation failed. Check contract conditions or role permissions.",
+          badgeColor: "var(--accent-danger-soft)",
+          icon: <AlertTriangle size={40} style={{ color: "var(--accent-danger)" }} />,
         };
       case "NetworkError":
         return {
           title: "Network RPC Error",
-          description: "Could not communicate with the Stellar Testnet RPC server or friendbot. Please check your connection.",
-          className: "status-network-error",
-          icon: <span className="status-large-icon error-icon">🔌</span>,
+          description: "Could not communicate with the Stellar Testnet RPC server. Please check your connection.",
+          badgeColor: "var(--accent-danger-soft)",
+          icon: <AlertTriangle size={40} style={{ color: "var(--accent-danger)" }} />,
         };
       default:
         return {
           title: "Processing",
           description: "Please wait...",
-          className: "status-processing",
+          badgeColor: "rgba(0, 125, 254, 0.15)",
           icon: <LoadingSpinner size="md" />,
         };
     }
@@ -100,57 +101,83 @@ export const TransactionLifecycleModal: React.FC<TransactionLifecycleModalProps>
   const isFinished = ["Confirmed", "Failed", "Rejected", "WalletCancelled", "Expired", "SimulationError", "NetworkError"].includes(status);
 
   return (
-    <div className="modal-backdrop">
-      <div className={`modal-card ${details.className}`}>
-        <div className="modal-header">
-          <h3 className="modal-title">{details.title}</h3>
-          {isFinished && (
-            <button className="modal-close-btn" onClick={onClose}>
-              ×
-            </button>
-          )}
-        </div>
-        <div className="modal-body">
-          <div className="modal-icon-wrapper">{details.icon}</div>
-          <p className="modal-description">{details.description}</p>
+    <div className="modal-overlay" onClick={isFinished ? onClose : undefined}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "460px" }}>
+        <div className="bottom-sheet-handle" />
 
-          {txHash && (
-            <div className="modal-tx-details">
-              <span className="details-label">Tx Hash:</span>
-              <div className="tx-hash-row">
-                <code className="tx-hash-code">{`${txHash.slice(0, 10)}...${txHash.slice(-10)}`}</code>
-                <button className="btn btn-sm btn-outline-secondary" onClick={copyToClipboard}>
-                  {copied ? "Copied" : "Copy"}
-                </button>
-              </div>
+        <div style={{ textAlign: "center", marginBottom: "1.3rem" }}>
+          <div
+            style={{
+              width: "64px",
+              height: "64px",
+              borderRadius: "50%",
+              background: details.badgeColor,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 0.9rem auto",
+            }}
+          >
+            {details.icon}
+          </div>
+
+          <h3 style={{ fontSize: "1.25rem", fontWeight: 900, color: "var(--text-primary)", margin: "0 0 0.3rem 0" }}>
+            {details.title}
+          </h3>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: 1.45, margin: 0 }}>
+            {details.description}
+          </p>
+        </div>
+
+        {txHash && (
+          <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "16px", padding: "0.95rem 1.1rem", marginBottom: "1.1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>Transaction Receipt</span>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={copyToClipboard}
+                style={{ height: "28px", fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+              >
+                {copied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
+              </button>
+            </div>
+            <code style={{ fontSize: "0.76rem", color: "var(--accent-blue)", wordBreak: "break-all" }}>
+              {txHash}
+            </code>
+            <div style={{ marginTop: "0.4rem" }}>
               <a
                 href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="explorer-link"
+                style={{ fontSize: "0.78rem", color: "var(--accent-blue)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.25rem", fontWeight: 700 }}
               >
-                View on Stellar.Expert ↗
+                View on Stellar.Expert <ExternalLink size={11} />
               </a>
             </div>
-          )}
+          </div>
+        )}
 
-          {error && (
-            <div className="modal-error-diagnostics">
-              <span className="details-label">Diagnosis:</span>
-              <pre className="diagnostics-code">{error}</pre>
-            </div>
-          )}
-        </div>
-        <div className="modal-footer">
+        {error && (
+          <div style={{ background: "var(--accent-danger-soft)", border: "1px solid rgba(239, 68, 68, 0.3)", borderRadius: "14px", padding: "0.8rem", color: "#f87171", fontSize: "0.8rem", marginBottom: "1.1rem", maxHeight: "120px", overflowY: "auto" }}>
+            <strong>Diagnosis:</strong> {error}
+          </div>
+        )}
+
+        <div>
           {isFinished ? (
-            <button className="btn btn-primary w-100" onClick={onClose}>
-              Dismiss
+            <button className="btn btn-primary w-100" onClick={onClose} style={{ height: "46px" }}>
+              Dismiss Receipt
             </button>
           ) : (
-            <p className="modal-wait-text">Please sign and do not close your browser...</p>
+            <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.78rem", margin: 0 }}>
+              Please do not close this window while transaction is submitting...
+            </p>
           )}
         </div>
       </div>
     </div>
   );
 };
+
+export default TransactionLifecycleModal;

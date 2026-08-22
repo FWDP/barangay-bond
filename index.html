@@ -1,10 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>barangay-bond</title>
+    <title>Barangay Bond — Civic Banking on Stellar</title>
+    <meta name="description" content="A transparent, on-chain civic finance platform for Philippine barangays. Powered by Stellar Soroban smart contracts." />
+    <script>
+      (function(){
+        var t = localStorage.getItem('bgy_theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

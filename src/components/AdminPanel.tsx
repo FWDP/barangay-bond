@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { verifyResident, verifySKOfficial } from "../transactions/transactions";
+import { verifyResident, verifySKOfficial, createProject } from "../transactions/transactions";
 import { useAuth } from "../contexts/AuthContext";
-import type { UserProfile } from "../contexts/AuthContext";
-import type { TransactionStatus } from "../types";
+import type { UserProfile } from "../types/domain.types";
+import type { TransactionStatus, ProjectProposal } from "../types";
+import { proposalRepository } from "../repositories/proposal.repository";
+import { auditRepository } from "../repositories/audit.repository";
+import { notificationRepository } from "../repositories/notification.repository";
+import { useLoading } from "../contexts/LoadingContext";
+import { formatXlmToPhp } from "../utils/currency";
 import { db } from "../services/firebase";
 import { collection, query, getDocs, orderBy, doc, getDoc } from "firebase/firestore";
 import { getFuzzySimilarity } from "../services/gemini";
@@ -21,12 +26,15 @@ import {
 import {
   ShieldCheck, UserCheck, X, AlertCircle, Ban,
   UserX, CheckCircle2, History, Radio, RefreshCw,
-  ZoomIn, ZoomOut, Maximize2, Eye, RotateCw
+  ZoomIn, ZoomOut, Maximize2, Eye, RotateCw, Bot, Plus, Trash2
 } from "lucide-react";
+import { aiProposalAdvisorService, type AIAdvisorResponse } from "../services/aiProposalAdvisor.service";
 import { ErrorValidationModal } from "./ErrorValidationModal";
+import { getProjectCount } from "../rpc/rpc";
 
 interface AdminPanelProps {
   adminAddress: string;
+  projects?: any[];
   onExecute: (
     actionFn: (
       onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
@@ -34,7 +42,7 @@ interface AdminPanelProps {
   ) => void;
 }
 
-export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute }) => {
+export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, projects = [], onExecute }) => {
   const {
     profile,
     dbUsers,
@@ -45,6 +53,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     revokeSKOfficial,
     lockProfileForReview
   } = useAuth();
+  const { startLoading, updateLoading, stopLoading } = useLoading();
 
   // Dialog / Drawer states
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
@@ -86,6 +95,256 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   const [logsFilterCategory, setLogsFilterCategory] = useState("");
   const [logsFilterSeverity, setLogsFilterSeverity] = useState("");
 
+  // Project Proposals Approval Gate & AI Buddy state
+  const [adminProposals, setAdminProposals] = useState<ProjectProposal[]>([]);
+  const [proposalEdits, setProposalEdits] = useState<{ [id: string]: { approvedBudgetXlm: number; approvedMobilizationPct: number } }>({});
+  
+  // AI Buddy Modal for Admin
+  const [activeAdminModalProp, setActiveAdminModalProp] = useState<ProjectProposal | null>(null);
+  const [adminPhases, setAdminPhases] = useState<any[]>([]);
+  const [adminAIAnalysis, setAdminAIAnalysis] = useState<AIAdvisorResponse | null>(null);
+  const [isAnalyzingAdminAI, setIsAnalyzingAdminAI] = useState(false);
+  const [selectedProjectDetails, setSelectedProjectDetails] = useState<any | null>(null);
+
+  const openAdminAIModal = async (prop: ProjectProposal) => {
+    setActiveAdminModalProp(prop);
+    const total = proposalEdits[prop.id!]?.approvedBudgetXlm || prop.proposedBudgetXlm;
+    const existingPhases = (prop.phases || []).map(p => ({
+      ...p,
+      amountXlm: p.amountXlm || (total * p.percentage) / 100
+    }));
+    setAdminPhases(existingPhases);
+    setIsAnalyzingAdminAI(true);
+    try {
+      const res = await aiProposalAdvisorService.analyzeProposal(
+        prop.projectName,
+        prop.description,
+        prop.proposedBudgetXlm,
+        existingPhases
+      );
+      setAdminAIAnalysis(res);
+    } catch (err) {
+      console.error("Admin AI Buddy error:", err);
+    } finally {
+      setIsAnalyzingAdminAI(false);
+    }
+  };
+
+  const handleAdminAddPhase = () => {
+    if (!activeAdminModalProp) return;
+    const total = proposalEdits[activeAdminModalProp.id!]?.approvedBudgetXlm || activeAdminModalProp.proposedBudgetXlm;
+    const nextNum = adminPhases.length + 1;
+    const newPhase = {
+      phaseNumber: nextNum,
+      title: `Phase ${nextNum}: Deliverable ${nextNum}`,
+      percentage: 0,
+      amountXlm: 0,
+    };
+    const updated = [...adminPhases, newPhase];
+    const evenPct = Math.floor(100 / updated.length);
+    const remainder = 100 - (evenPct * updated.length);
+    updated.forEach((p, idx) => {
+      p.percentage = idx === 0 ? evenPct + remainder : evenPct;
+      p.amountXlm = (total * p.percentage) / 100;
+    });
+    setAdminPhases(updated);
+  };
+
+  const handleAdminRemovePhase = (index: number) => {
+    if (!activeAdminModalProp || adminPhases.length <= 1) return;
+    const total = proposalEdits[activeAdminModalProp.id!]?.approvedBudgetXlm || activeAdminModalProp.proposedBudgetXlm;
+    const filtered = adminPhases.filter((_, idx) => idx !== index);
+    filtered.forEach((p, idx) => {
+      p.phaseNumber = idx + 1;
+    });
+    const evenPct = Math.floor(100 / filtered.length);
+    const remainder = 100 - (evenPct * filtered.length);
+    filtered.forEach((p, idx) => {
+      p.percentage = idx === 0 ? evenPct + remainder : evenPct;
+      p.amountXlm = (total * p.percentage) / 100;
+    });
+    setAdminPhases(filtered);
+  };
+
+  useEffect(() => {
+    if (!profile?.barangayId) return;
+    const unsubscribe = proposalRepository.subscribeToProposals(profile.barangayId, (data) => {
+      setAdminProposals(data);
+      setProposalEdits((prev) => {
+        const updated = { ...prev };
+        data.forEach((p) => {
+          if (p.id && !updated[p.id]) {
+            updated[p.id] = {
+              approvedBudgetXlm: p.approvedBudgetXlm ?? p.proposedBudgetXlm,
+              approvedMobilizationPct: p.approvedMobilizationPct ?? p.proposedMobilizationPct ?? 60,
+            };
+          }
+        });
+        return updated;
+      });
+    });
+    return () => unsubscribe();
+  }, [profile?.barangayId]);
+
+  const handleApproveProposal = async (proposal: ProjectProposal) => {
+    if (!proposal.id) return;
+    const edits = proposalEdits[proposal.id] || {
+      approvedBudgetXlm: proposal.proposedBudgetXlm,
+      approvedMobilizationPct: proposal.proposedMobilizationPct || 60,
+    };
+
+    // Find active SK officials strictly in the SAME Barangay jurisdiction
+    const sameBarangaySKs = dbUsers.filter(
+      (u) =>
+        u.barangayId === profile?.barangayId &&
+        u.role === "sk_official" &&
+        u.status === "active" &&
+        !!u.walletAddress
+    );
+
+    // Priority 1: SK Secretary or Treasurer
+    let recipient = sameBarangaySKs.find(
+      (u) => u.position === "secretary" || u.skPosition === "secretary" || u.position === "treasurer" || u.skPosition === "treasurer"
+    );
+
+    // Priority 2: Proposer or SK Chairman
+    if (!recipient) {
+      recipient = sameBarangaySKs.find(
+        (u) => u.uid === proposal.skOfficialUid || u.position === "chairman" || u.skPosition === "chairman"
+      );
+    }
+
+    // Priority 3: Any active SK Kagawad in the same barangay
+    if (!recipient) {
+      recipient = sameBarangaySKs[0];
+    }
+
+    // Use the proposal's declared SK address directly
+    const targetSkAddress = proposal.skOfficialAddress;
+
+    startLoading({
+      category: "soroban",
+      title: "⚡ Deploying Soroban Escrow Contract",
+      message: `Locking treasury budget for "${proposal.projectName}" on Stellar testnet...`,
+      steps: [
+        "Resolving SK Official Wallet Address",
+        "Invoking Soroban create_project Contract Method",
+        "Confirming On-Chain Escrow Ledger Record",
+      ],
+    });
+
+    onExecute(async (onStatusChange) => {
+      try {
+        updateLoading("Invoking Soroban create_project contract method...", 1);
+        
+        // Build valid milestone percentages array summing to exactly 100
+        let finalPhases = proposal.phases && proposal.phases.length > 0 ? [...proposal.phases] : [];
+        if (finalPhases.length === 0) {
+          const mobPct = edits.approvedMobilizationPct || proposal.proposedMobilizationPct || 50;
+          finalPhases = [
+            { phaseNumber: 1, title: "Phase 1: Mobilization", percentage: mobPct, amountXlm: (edits.approvedBudgetXlm * mobPct) / 100 },
+            { phaseNumber: 2, title: "Phase 2: Execution", percentage: 100 - mobPct, amountXlm: (edits.approvedBudgetXlm * (100 - mobPct)) / 100 },
+          ];
+        }
+        
+        let milestonePercentages = finalPhases.map((p) => Math.round(Number(p.percentage) || 0));
+        const sumPct = milestonePercentages.reduce((a, b) => a + b, 0);
+        if (sumPct !== 100 && milestonePercentages.length > 0) {
+          // Adjust last phase so total equals exactly 100%
+          const diff = 100 - sumPct;
+          milestonePercentages[milestonePercentages.length - 1] += diff;
+          if (finalPhases[finalPhases.length - 1]) {
+            finalPhases[finalPhases.length - 1].percentage = milestonePercentages[milestonePercentages.length - 1];
+          }
+        }
+
+        const finalMobilizationPct = milestonePercentages[0] || 50;
+        const txHash = await createProject(
+          adminAddress,
+          targetSkAddress,
+          proposal.projectName,
+          edits.approvedBudgetXlm,
+          proposal.description,
+          milestonePercentages,
+          onStatusChange
+        );
+        updateLoading("Transaction confirmed on Stellar ledger!", 2);
+
+        let onChainProjectId: number | undefined = undefined;
+        try {
+          onChainProjectId = await getProjectCount();
+        } catch (err) {
+          console.error("Failed to query project count:", err);
+        }
+
+        const phaseProofRequirements: Record<string, string> = {};
+        finalPhases.forEach((ph: any) => {
+          if (ph.requiredProofs) {
+            phaseProofRequirements[`phase${ph.phaseNumber}`] = ph.requiredProofs;
+          }
+        });
+
+        await proposalRepository.updateProposalStatus(proposal.id!, "approved_onchain", profile!.uid, {
+          approvedBudgetXlm: edits.approvedBudgetXlm,
+          approvedMobilizationPct: finalMobilizationPct,
+          onChainProjectId,
+          phaseProofRequirements,
+          txHash,
+          phases: finalPhases,
+        });
+
+        // Write Audit Log
+        try {
+          await auditRepository.writeAuditLog({
+            action: "Project Proposal Approved",
+            category: "Escrow Approval",
+            severity: "Info",
+            actorUid: profile!.uid,
+            actorName: profile!.name || profile!.email || "Barangay Admin",
+            actorRole: profile!.role || "barangay_admin",
+            targetUid: proposal.skOfficialUid || "",
+            targetName: proposal.skOfficialName || "SK Official",
+            targetRole: "sk_official",
+            barangayId: profile!.barangayId || "",
+            device: navigator.userAgent || "Web Browser",
+            timestamp: new Date().toISOString(),
+            notes: `Approved project proposal "${proposal.projectName}" on-chain with budget ${edits.approvedBudgetXlm} XLM. On-chain Project ID: #${onChainProjectId}. Transaction: ${txHash}`
+          });
+        } catch (auditErr) {
+          console.error("Failed to write audit log for project approval:", auditErr);
+        }
+
+        // Send Notification to SK Proposer
+        if (proposal.skOfficialUid) {
+          try {
+            await notificationRepository.createNotification({
+              targetUid: proposal.skOfficialUid,
+              barangayId: profile!.barangayId || "",
+              title: "🎉 Project Initiative Approved!",
+              message: `Your project "${proposal.projectName}" has been approved by Barangay Admin ${profile?.name || "Official"} and funded on-chain with ${edits.approvedBudgetXlm} XLM. You can now view it in your workspace and submit progress proofs.`,
+              createdAt: new Date().toISOString(),
+              read: false
+            });
+          } catch (notifErr) {
+            console.error("Failed to send notification for project approval:", notifErr);
+          }
+        }
+
+        return txHash;
+      } catch (err: any) {
+        console.error("Failed to approve project on-chain:", err);
+        throw err;
+      } finally {
+        stopLoading();
+      }
+    });
+  };
+
+  const handleRejectProposal = async (proposalId: string) => {
+    if (!profile?.uid) return;
+    await proposalRepository.updateProposalStatus(proposalId, "rejected", profile.uid);
+  };
+
   // Fetch audit records and LGUs
   const loadLogsAndBarangays = async () => {
     try {
@@ -107,13 +366,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
 
   const handleAssignAdmin = async () => {
     if (!selectedUser) return;
-    const bgyId = selectedUser.requestedBarangayId || "042103011";
+    
+    let bgyId = selectedUser.requestedBarangayId;
+    if (!bgyId || bgyId === "unassigned" || bgyId === "N/A") {
+      const str = `${selectedUser.requestedBarangayName || ""}-${selectedUser.requestedMunicipalityName || ""}`.trim().toLowerCase();
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      bgyId = Math.abs(hash).toString().padStart(9, "0").substring(0, 9);
+    }
+
     const bgyName = selectedUser.requestedBarangayName || "Bucandala III";
     const muniName = selectedUser.requestedMunicipalityName || "Imus City";
     const provName = selectedUser.requestedProvinceName || "Cavite";
     const regName = selectedUser.requestedRegionName || "CALABARZON";
 
     try {
+      startLoading({
+        category: "crud",
+        title: "💾 Approving Barangay Admin",
+        message: `Setting admin permissions and creating Barangay bounds for "${bgyName}"...`,
+      });
       await approveBarangayAdmin(
         selectedUser.uid,
         bgyId,
@@ -127,16 +401,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
       handleCloseReview();
     } catch (err: any) {
       setPanelError(err);
+    } finally {
+      stopLoading();
     }
   };
 
   const handleSuspendAdmin = async (uid: string, isSuspend: boolean) => {
     if (confirm(`Are you sure you want to ${isSuspend ? "SUSPEND" : "REACTIVATE"} this Barangay Admin?`)) {
       try {
+        startLoading({
+          category: "crud",
+          title: "💾 Modifying Administrator Status",
+          message: `Applying ${isSuspend ? "Suspension" : "Reactivation"} status block to database...`,
+        });
         await suspendBarangayAdmin(uid, isSuspend);
         alert(`Admin status successfully changed to ${isSuspend ? "SUSPENDED" : "ACTIVE"}.`);
       } catch (err: any) {
         setPanelError(err);
+      } finally {
+        stopLoading();
       }
     }
   };
@@ -146,8 +429,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     setSkError("");
     if (!selectedResidentForSK || !termStart || !termEnd) return;
 
-    if (!selectedResidentForSK.walletAddress) {
-      setSkError("This resident has not linked their Stellar wallet address yet. They must bind their wallet before being promoted to SK Official.");
+    if (!adminAddress || adminAddress === "N/A" || !adminAddress.startsWith("G")) {
+      setSkError("You must connect and link a valid Stellar wallet (starts with 'G') under Profile & Settings before verifying SK Officials on-chain.");
+      return;
+    }
+
+    if (!selectedResidentForSK.walletAddress || !selectedResidentForSK.walletAddress.startsWith("G")) {
+      setSkError("This resident has not linked a valid Stellar wallet address yet. They must bind their wallet before being promoted to SK Official.");
       return;
     }
 
@@ -164,6 +452,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
   const handleRevokeSK = async (uid: string) => {
     const targetUser = dbUsers.find(u => u.uid === uid);
     if (!targetUser) return;
+
+    if (!adminAddress || adminAddress === "N/A" || !adminAddress.startsWith("G")) {
+      alert("You must connect and link a valid Stellar wallet (starts with 'G') under Profile & Settings before performing on-chain administrative transactions.");
+      return;
+    }
 
     if (confirm("Are you sure you want to revoke this SK Official's term and restore them to resident status?")) {
       if (targetUser.walletAddress) {
@@ -197,8 +490,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     setAiVerification(null);
     try {
       await lockProfileForReview(user.uid, true);
-      if (user.latestVerificationId) {
-        const docRef = doc(db, "ai_verifications", user.latestVerificationId);
+      const vId = user.aiVerificationId || user.latestVerificationId;
+      if (vId) {
+        const docRef = doc(db, "ai_verifications", vId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setAiVerification(docSnap.data());
@@ -224,31 +518,55 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     setSelectedResubmissionFields([]);
   };
 
-  const handleApprove = (user: UserProfile, role: "sk" | "youth") => {
-    if (!user.walletAddress) {
-      setPanelError(new Error("This resident has not linked their Stellar wallet address yet. They must bind their wallet before being promoted to SK Official."));
+  const handleApprove = async (user: UserProfile, role: "sk" | "youth") => {
+    const readyForOnChainSigning = Boolean(user.walletAddress && adminAddress);
+
+    if (role === "youth" && readyForOnChainSigning) {
+      onExecute(async (onStatusChange) => {
+        let txHash = "";
+        const targetWallet = user.walletAddress;
+        if (role === "youth") {
+          txHash = await verifyResident(adminAddress, targetWallet!, true, onStatusChange);
+        } else {
+          txHash = await verifySKOfficial(adminAddress, targetWallet!, true, onStatusChange);
+        }
+
+        await verifyUserInDb(user.uid, role, true, adminNotes || "Approved by Admin");
+        setAdminNotes("");
+        setSelectedUser(null);
+        return txHash;
+      });
       return;
     }
 
-    onExecute(async (onStatusChange) => {
-      let txHash = "";
-      if (role === "youth") {
-        txHash = await verifyResident(adminAddress, user.walletAddress!, true, onStatusChange);
-      } else {
-        txHash = await verifySKOfficial(adminAddress, user.walletAddress!, true, onStatusChange);
-      }
-
+    // Approval is an admin decision and can be persisted without a wallet signature.
+    // This allows admin review/activation to proceed even when the selected resident/profile
+    // does not yet have an on-chain wallet bound.
+    try {
+      startLoading({
+        category: "crud",
+        title: "💾 Approving Profile Verification",
+        message: `Saving approval status to Firestore database for user "${user.name}"...`,
+      });
       await verifyUserInDb(user.uid, role, true, adminNotes || "Approved by Admin");
       setAdminNotes("");
       setSelectedUser(null);
-      return txHash;
-    });
+    } catch (err: any) {
+      setPanelError(err);
+    } finally {
+      stopLoading();
+    }
   };
 
   const handleReject = async (uid: string) => {
     console.debug("[AdminPanel] handleReject triggered for user UID:", uid, { notes: adminNotes });
     if (confirm("Are you sure you want to reject this verification request?")) {
       try {
+        startLoading({
+          category: "crud",
+          title: "💾 Rejecting Profile Verification",
+          message: "Writing rejection decision and note logs to Firestore database...",
+        });
         await verifyUserInDb(uid, "youth", false, adminNotes || "Rejected by Admin", { action: "full_reject" });
         console.debug("[AdminPanel] handleReject succeeded for user UID:", uid);
         setAdminNotes("");
@@ -257,6 +575,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
       } catch (err: any) {
         console.error("[AdminPanel] handleReject failed for user UID:", uid, err);
         setPanelError(err);
+      } finally {
+        stopLoading();
       }
     }
   };
@@ -269,6 +589,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
     const note = adminNotes || suggestedReason || "Resubmission requested.";
     if (confirm("Are you sure you want to request document resubmission? The resident will stay inside the dashboard, but only the selected fields will be eligible for resubmission.")) {
       try {
+        startLoading({
+          category: "crud",
+          title: "💾 Requesting Profile Resubmission",
+          message: `Sending resubmission request to user database for user ID: ${uid}...`,
+        });
         await verifyUserInDb(uid, "youth", false, note, {
           action: "resubmission_required",
           preset: selectedResubmissionPreset,
@@ -282,6 +607,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
         setSelectedUser(null);
       } catch (err: any) {
         setPanelError(err);
+      } finally {
+        stopLoading();
       }
     }
   };
@@ -669,6 +996,792 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
               <span className="stats-desc">Only display local boundary data</span>
             </div>
           </div>
+
+          {/* SK Project Proposals Approval Gate Panel */}
+          <div className="panel-card mb-4">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h2 className="panel-title">📋 SK Project Proposals & Escrow Approval Gate</h2>
+                <p className="panel-subtitle">Review, adjust approved budgets, and deploy smart contract escrows from the Barangay Treasury.</p>
+              </div>
+              <span className="badge badge-info">{adminProposals.filter((p) => p.status === "pending_admin_approval").length} Pending Review</span>
+            </div>
+
+            {adminProposals.filter((p) => p.status === "pending_admin_approval").length === 0 ? (
+              <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                <CheckCircle2 size={32} style={{ color: "#10b981", margin: "0 auto 0.5rem auto" }} />
+                <p style={{ fontSize: "0.9rem" }}>No pending project proposals awaiting Barangay Admin approval.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Proposed Project</th>
+                      <th>SK Proposer</th>
+                      <th>Proposed Budget</th>
+                      <th>Final Approved Budget (XLM)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminProposals
+                      .filter((p) => p.status === "pending_admin_approval")
+                      .map((prop) => {
+                        const edits = proposalEdits[prop.id!] || {
+                          approvedBudgetXlm: prop.proposedBudgetXlm,
+                          approvedMobilizationPct: prop.proposedMobilizationPct || 60,
+                        };
+                        return (
+                          <tr key={prop.id}>
+                            <td>
+                              <strong style={{ fontSize: "1rem" }}>{prop.projectName}</strong>
+                              <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginTop: "0.2rem" }}>
+                                {prop.description}
+                              </div>
+                              {prop.phases && prop.phases.length > 0 && (
+                                <div style={{ marginTop: "0.5rem", background: "rgba(0,0,0,0.03)", border: "1px solid #cbd5e1", padding: "0.5rem 0.8rem", borderRadius: "8px", fontSize: "0.78rem" }}>
+                                  <strong style={{ color: "var(--primary)" }}>⚡ {prop.phases.length}-Phase Release Tranches:</strong>
+                                  {prop.phases.map((ph) => (
+                                    <div key={ph.phaseNumber} style={{ display: "flex", justifyContent: "space-between", color: "#475569", marginTop: "0.2rem" }}>
+                                      <span>• {ph.title} ({ph.percentage}%):</span>
+                                      <strong>{((edits.approvedBudgetXlm * ph.percentage) / 100).toFixed(2)} XLM</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{prop.skOfficialName}</strong>
+                              <div style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "var(--text-muted)" }}>
+                                {prop.skOfficialAddress ? `${prop.skOfficialAddress.slice(0, 6)}...${prop.skOfficialAddress.slice(-4)}` : "No Wallet"}
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: 700 }}>{prop.proposedBudgetXlm} XLM</span>
+                              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                (≈ {formatXlmToPhp(prop.proposedBudgetXlm)})
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  className="form-control form-control-sm"
+                                  style={{ width: "120px", fontWeight: 700 }}
+                                  value={edits.approvedBudgetXlm}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setProposalEdits((prev) => ({
+                                      ...prev,
+                                      [prop.id!]: { ...edits, approvedBudgetXlm: val },
+                                    }));
+                                  }}
+                                />
+                                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                                  ≈ {formatXlmToPhp(edits.approvedBudgetXlm)}
+                                </span>
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem", fontWeight: 700 }}
+                                  onClick={() => openAdminAIModal(prop)}
+                                >
+                                  <Bot size={14} /> 🤖 AI Buddy Review & Edit
+                                </button>
+                                <div style={{ display: "flex", gap: "0.5rem" }}>
+                                  <button
+                                    className="btn btn-sm btn-success flex-grow"
+                                    onClick={() => handleApproveProposal(prop)}
+                                  >
+                                    <CheckCircle2 size={14} style={{ marginRight: "0.25rem" }} /> Approve & Fund
+                                  </button>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => handleRejectProposal(prop.id!)}
+                                  >
+                                    <X size={14} />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Ongoing Barangay Projects & Auditing Panel */}
+          <div className="panel-card mb-4">
+            <h2 className="panel-title">🚧 Active On-Chain Projects & Audit Reviews</h2>
+            <p className="panel-subtitle">Review resident voting progress, inspect public proofs, and audit private additional deliverables.</p>
+            {adminProposals.filter(p => p.status === "approved_onchain").length === 0 ? (
+              <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                <p style={{ fontSize: "0.9rem" }}>No ongoing projects deployed for this Barangay yet.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Project Initiative</th>
+                      <th>SK Proposer</th>
+                      <th>Escrow Budget</th>
+                      <th>Milestone Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminProposals
+                      .filter(p => p.status === "approved_onchain")
+                      .map(prop => {
+                        const onChainProj = projects.find(
+                          p => p.id === prop.onChainProjectId ||
+                          (p.name.toLowerCase() === prop.projectName.toLowerCase() && p.creator.toLowerCase() === prop.skOfficialAddress.toLowerCase())
+                        );
+
+                        return (
+                          <tr key={prop.id}>
+                            <td>
+                              <strong>{prop.projectName}</strong>
+                              <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{prop.description}</div>
+                              {prop.onChainProjectId && (
+                                <span style={{ fontSize: "0.72rem", color: "var(--primary)", fontWeight: 700 }}>
+                                  On-Chain Project ID: #{prop.onChainProjectId}
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <strong>{prop.skOfficialName}</strong>
+                            </td>
+                            <td style={{ fontWeight: 700 }}>
+                              {prop.approvedBudgetXlm || prop.proposedBudgetXlm} XLM
+                            </td>
+                            <td>
+                              {onChainProj ? (
+                                <span className={`badge ${
+                                  onChainProj.status === 2 ? "badge-success" : onChainProj.status === 1 ? "badge-warning" : "badge-info"
+                                }`} style={{ fontSize: "0.72rem" }}>
+                                  {onChainProj.status === 2 
+                                    ? "Completed" 
+                                    : onChainProj.status === 1 
+                                    ? "Voting Active" 
+                                    : "Phase 1 Mobilized"
+                                  }
+                                </span>
+                              ) : (
+                                <span className="badge badge-secondary" style={{ fontSize: "0.72rem" }}>
+                                  Checking on-chain ledger...
+                                </span>
+                              )}
+                            </td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => setSelectedProjectDetails({ prop, onChainProj })}
+                                style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}
+                              >
+                                <Eye size={12} /> Audit Deliverables
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Project Details & Private Proof Audit Modal */}
+          {selectedProjectDetails && (
+            <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: "1rem" }}>
+              <div className="modal-content" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-primary)", borderRadius: "20px", maxWidth: "600px", width: "100%", padding: "2rem", maxHeight: "90vh", overflowY: "auto", boxShadow: "var(--shadow-floating)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.2rem", borderBottom: "1px solid var(--border-subtle)", paddingBottom: "0.75rem" }}>
+                  <div>
+                    <h3 style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0, color: "var(--text-primary)" }}>Project Deliverables Audit</h3>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Initiative: {selectedProjectDetails.prop.projectName}</div>
+                  </div>
+                  <button type="button" className="btn btn-sm btn-outline" onClick={() => setSelectedProjectDetails(null)}>✕</button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", fontSize: "0.88rem" }}>
+                  <div>
+                    <strong style={{ color: "#334155" }}>Description:</strong>
+                    <p style={{ margin: "0.2rem 0 0 0", color: "#64748b", lineHeight: "1.4" }}>{selectedProjectDetails.prop.description}</p>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", background: "#f8fafc", padding: "0.85rem", borderRadius: "12px", border: "1px solid #e2e8f0" }}>
+                    <div>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Total Budget</span>
+                      <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#0f172a", marginTop: "0.15rem" }}>
+                        {selectedProjectDetails.prop.approvedBudgetXlm || selectedProjectDetails.prop.proposedBudgetXlm} XLM
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>SK Proposer</span>
+                      <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#0f172a", marginTop: "0.15rem" }}>
+                        {selectedProjectDetails.prop.skOfficialName}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "1rem" }}>
+                    <h4 style={{ fontSize: "0.95rem", fontWeight: 700, color: "#334155", marginBottom: "0.6rem" }}>Phase Audit & Requirements</h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
+                      
+                      {/* Render All Dynamic Phases */}
+                      {(() => {
+                        const phasesList = selectedProjectDetails.prop.phases && selectedProjectDetails.prop.phases.length > 0
+                          ? selectedProjectDetails.prop.phases
+                          : [
+                              { phaseNumber: 1, title: "Phase 1: Upfront Mobilization", percentage: selectedProjectDetails.onChainProj?.mobilizationPct ?? 50 },
+                              { phaseNumber: 2, title: "Phase 2: Project Execution", percentage: 100 - (selectedProjectDetails.onChainProj?.mobilizationPct ?? 50) }
+                            ];
+
+                        return phasesList.map((ph: any, idx: number) => {
+                          const phaseNum = ph.phaseNumber || (idx + 1);
+                          const isPhase1 = phaseNum === 1;
+                          const onChainMs = selectedProjectDetails.onChainProj?.milestones?.find((m: any) => m.index === phaseNum);
+                          const reqKey = `phase${phaseNum}`;
+                          const proofReq = selectedProjectDetails.prop.phaseProofRequirements?.[reqKey];
+                          const privateProof = selectedProjectDetails.prop.additionalProofs?.[`milestone_${phaseNum}`] || selectedProjectDetails.prop.additionalProofs?.[`milestone_${phaseNum - 1}`];
+
+                          const msStatus = isPhase1 
+                            ? 2 
+                            : (onChainMs?.status ?? (selectedProjectDetails.onChainProj?.status === 1 ? 2 : (selectedProjectDetails.onChainProj?.currentPhase > phaseNum ? 2 : selectedProjectDetails.onChainProj?.currentPhase === phaseNum ? (selectedProjectDetails.onChainProj?.milestone1Status ?? 0) : 0)));
+
+                          return (
+                            <div key={phaseNum} style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "1rem" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 700, fontSize: "0.85rem", color: "#334155" }}>
+                                <span>Tranche {phaseNum}: {ph.title || `Phase ${phaseNum}`} ({ph.percentage}% Release)</span>
+                                <span>
+                                  {isPhase1 ? (
+                                    <span className="badge badge-success" style={{ fontSize: "0.7rem" }}>Completed</span>
+                                  ) : (
+                                    <span className={`badge ${
+                                      msStatus === 2 
+                                        ? "badge-success" 
+                                        : msStatus === 1 
+                                        ? "badge-warning" 
+                                        : msStatus === 3
+                                        ? "badge-danger"
+                                        : "badge-info"
+                                    }`} style={{ fontSize: "0.7rem" }}>
+                                      {msStatus === 2 
+                                        ? "Approved & Released" 
+                                        : msStatus === 1 
+                                        ? "Voting Active" 
+                                        : msStatus === 3
+                                        ? "Rejected"
+                                        : "Awaiting Proof"
+                                      }
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+
+                              {proofReq && (
+                                <div style={{ marginTop: "0.5rem", fontSize: "0.8rem", color: "#475569" }}>
+                                  📋 <strong>Admin Required Deliverables:</strong> {proofReq}
+                                </div>
+                              )}
+
+                              {isPhase1 ? (
+                                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.78rem", color: "#94a3b8" }}>
+                                  Released automatically to SK Official wallet on on-chain deploy.
+                                </p>
+                              ) : (
+                                <>
+                                  {/* Standard On-chain Public Proof (for Citizens) */}
+                                  <div style={{ marginTop: "0.75rem", borderTop: "1px dashed #cbd5e1", paddingTop: "0.6rem" }}>
+                                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>🌐 Standard Citizen Proof (Public):</span>
+                                    {onChainMs?.proofUrl ? (
+                                      <div style={{ marginTop: "0.25rem" }}>
+                                        <a 
+                                          href={onChainMs.proofUrl} 
+                                          target="_blank" 
+                                          rel="noreferrer" 
+                                          className="proof-link-badge"
+                                          style={{ fontSize: "0.8rem", color: "var(--primary)" }}
+                                        >
+                                          View On-Chain Submitted Proof Link ↗
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic", marginTop: "0.15rem" }}>
+                                        No public citizen proof link submitted yet.
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Private Additional Proof (for Admin View Only) */}
+                                  <div style={{ marginTop: "0.75rem", borderTop: "1px dashed #cbd5e1", paddingTop: "0.6rem" }}>
+                                    <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#475569" }}>🔒 Admin-Only Verification Proof (Private):</span>
+                                    {privateProof ? (
+                                      <div style={{ marginTop: "0.25rem" }}>
+                                        <a 
+                                          href={privateProof} 
+                                          target="_blank" 
+                                          rel="noreferrer" 
+                                          className="proof-link-badge"
+                                          style={{ fontSize: "0.8rem", color: "#16a34a" }}
+                                        >
+                                          View Private Administrative Proof Link ↗
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontStyle: "italic", marginTop: "0.15rem" }}>
+                                        No private admin proof submitted yet.
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
+                  <button type="button" className="btn btn-navy" onClick={() => setSelectedProjectDetails(null)}>
+                    Close Audit View
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 🤖 Barangay Admin AI Buddy Review & Tranche Editor Modal */}
+          {activeAdminModalProp && (
+            <div className="modal-overlay" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: "1rem" }}>
+              <div className="modal-content" style={{ background: "var(--bg-surface)", border: "1px solid var(--border-primary)", borderRadius: "20px", maxWidth: "650px", width: "100%", padding: "2rem", maxHeight: "90vh", overflowY: "auto", boxShadow: "var(--shadow-floating)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                    <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "var(--role-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--role-accent)" }}>
+                      <Bot size={20} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: "1.15rem", fontWeight: 800, margin: 0, color: "var(--text-primary)" }}>Barangay Admin AI Buddy Review</h3>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Project: {activeAdminModalProp.projectName}</div>
+                    </div>
+                  </div>
+                  <button type="button" className="btn btn-sm btn-outline" onClick={() => setActiveAdminModalProp(null)}>✕</button>
+                </div>
+
+                {/* AI Analysis Summary */}
+                {isAnalyzingAdminAI ? (
+                  <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-secondary)" }}>
+                    <RefreshCw className="animate-spin" size={24} style={{ margin: "0 auto 0.5rem auto", color: "var(--role-accent)" }} />
+                    <p style={{ fontSize: "0.88rem" }}>AI Buddy is performing per-phase feasibility and budget audit...</p>
+                  </div>
+                ) : adminAIAnalysis ? (
+                  <>
+                    {/* General AI Summary Card */}
+                    <div style={{ background: "var(--bg-elevated)", border: "1px solid var(--border-primary)", borderRadius: "18px", padding: "1.25rem", marginBottom: "1.5rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem", marginBottom: "0.75rem" }}>
+                        <div>
+                          <div style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800, color: "var(--text-muted)", letterSpacing: "0.5px" }}>AI Feasibility Score</div>
+                          <div style={{ fontSize: "1.25rem", fontWeight: 900, color: adminAIAnalysis.feasibilityScore >= 85 ? "#10b981" : "#d97706", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            {adminAIAnalysis.feasibilityScore >= 85 ? "🟢" : "🟡"} {adminAIAnalysis.verdict}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: "1.8rem", fontWeight: 900, color: adminAIAnalysis.feasibilityScore >= 85 ? "#10b981" : "#d97706", background: "var(--bg-surface)", width: "60px", height: "60px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid var(--border-primary)" }}>
+                          {adminAIAnalysis.feasibilityScore}%
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: "1.5", borderTop: "1px solid var(--border-subtle)", paddingTop: "0.75rem" }}>
+                        <strong>General Auditor Summary:</strong> {adminAIAnalysis.summary}
+                      </div>
+                      {adminAIAnalysis.totalBudgetJustification && (
+                        <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginTop: "0.5rem", fontStyle: "italic", background: "var(--bg-surface)", padding: "0.6rem 0.8rem", borderRadius: "8px", border: "1px solid var(--border-subtle)" }}>
+                          {adminAIAnalysis.totalBudgetJustification}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : null}
+
+                {/* Admin Phase Editor: Split / Combine / Adjust */}
+                {(() => {
+                  const total = activeAdminModalProp ? (proposalEdits[activeAdminModalProp.id!]?.approvedBudgetXlm || activeAdminModalProp.proposedBudgetXlm) : 0;
+                  const totalPercentage = adminPhases.reduce((acc, curr) => acc + curr.percentage, 0);
+                  const isSumValid = Math.abs(totalPercentage - 100) < 0.01;
+
+                  const modernInputStyle = {
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "10px",
+                    padding: "0.55rem 0.75rem",
+                    fontSize: "0.85rem",
+                    color: "#1e293b",
+                    background: "#f8fafc",
+                    width: "100%",
+                    boxShadow: "inset 0 1px 2px rgba(0,0,0,0.02)",
+                    outline: "none",
+                  };
+
+                  return (
+                    <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "1rem", marginBottom: "1.5rem" }}>
+                      {/* Approved Total Budget & AI Recommendation Controls */}
+                      <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "18px", padding: "1.25rem", marginBottom: "1.5rem", display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", alignItems: "flex-end" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                            <label style={{ fontSize: "0.8rem", fontWeight: 800, color: "#0f172a" }}>Approved Total Budget (XLM)</label>
+                            <input
+                              type="number"
+                              style={modernInputStyle}
+                              value={total}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setProposalEdits(prev => ({
+                                  ...prev,
+                                  [activeAdminModalProp!.id!]: {
+                                    ...prev[activeAdminModalProp!.id!],
+                                    approvedBudgetXlm: val
+                                  }
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>Conversion Value</label>
+                            <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a", padding: "0.55rem 0" }}>
+                              ≈ {formatXlmToPhp(total)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {adminAIAnalysis && (
+                          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                              <span style={{ fontSize: "0.75rem", color: "#475569" }}>
+                                AI Recommended: <strong>{adminAIAnalysis.recommendedTotalXlm} XLM</strong> (≈ {formatXlmToPhp(adminAIAnalysis.recommendedTotalXlm)})
+                              </span>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => {
+                                  setProposalEdits(prev => ({
+                                    ...prev,
+                                    [activeAdminModalProp!.id!]: {
+                                      ...prev[activeAdminModalProp!.id!],
+                                      approvedBudgetXlm: adminAIAnalysis.recommendedTotalXlm
+                                    }
+                                  }));
+                                  const mapped = adminAIAnalysis.recommendedPhases.map((rp: any) => ({
+                                    phaseNumber: rp.phaseNumber,
+                                    title: rp.title,
+                                    percentage: rp.percentage,
+                                    amountXlm: (adminAIAnalysis.recommendedTotalXlm * rp.percentage) / 100,
+                                    description: rp.description || "",
+                                    requiredProofs: rp.requiredProofs || "Official BIR Receipts & Geo-tagged progress photos"
+                                  }));
+                                  setAdminPhases(mapped);
+                                }}
+                                style={{ padding: "0.35rem 0.75rem", fontSize: "0.72rem", fontWeight: 700 }}
+                              >
+                                ✨ Apply AI Recommended Budget & Phases
+                              </button>
+                            </div>
+
+                            <details style={{ background: "#ffffff", padding: "0.6rem 0.8rem", borderRadius: "10px", border: "1px solid #e2e8f0", cursor: "pointer" }}>
+                              <summary style={{ fontSize: "0.75rem", fontWeight: 700, color: "#0284c7" }}>View AI Recommended Phase-by-Phase Breakdown</summary>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem", cursor: "default" }}>
+                                {adminAIAnalysis.recommendedPhases.map((rp: any, i: number) => {
+                                  const rpAmt = (adminAIAnalysis.recommendedTotalXlm * rp.percentage) / 100;
+                                  return (
+                                    <div key={i} style={{ borderBottom: i < adminAIAnalysis.recommendedPhases.length - 1 ? "1px dashed #cbd5e1" : "none", paddingBottom: "0.4rem" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", fontWeight: 700, color: "#1e293b" }}>
+                                        <span>Phase {rp.phaseNumber}: {rp.title}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                          <span style={{ color: "#0284c7" }}>{rp.percentage}% ({rpAmt.toFixed(2)} XLM)</span>
+                                          <button
+                                            type="button"
+                                            style={{
+                                              padding: "0.2rem 0.5rem",
+                                              fontSize: "0.65rem",
+                                              fontWeight: 700,
+                                              borderRadius: "6px",
+                                              background: "#0284c7",
+                                              color: "#ffffff",
+                                              border: "none",
+                                              cursor: "pointer",
+                                              display: "inline-flex",
+                                              alignItems: "center"
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              e.preventDefault();
+                                              const updated = [...adminPhases];
+                                              const targetIdx = rp.phaseNumber - 1;
+
+                                              while (updated.length <= targetIdx) {
+                                                updated.push({
+                                                  phaseNumber: updated.length + 1,
+                                                  title: "",
+                                                  percentage: 0,
+                                                  amountXlm: 0,
+                                                  description: "",
+                                                  requiredProofs: ""
+                                                });
+                                              }
+
+                                              updated[targetIdx] = {
+                                                phaseNumber: rp.phaseNumber,
+                                                title: rp.title,
+                                                percentage: rp.percentage,
+                                                amountXlm: rpAmt,
+                                                description: rp.description || "",
+                                                requiredProofs: rp.requiredProofs || "Official BIR Receipts & Geo-tagged progress photos"
+                                              };
+
+                                              const newTotal = updated.reduce((acc, curr) => acc + (curr.amountXlm || 0), 0);
+
+                                              setProposalEdits(prev => ({
+                                                ...prev,
+                                                [activeAdminModalProp!.id!]: {
+                                                  ...prev[activeAdminModalProp!.id!],
+                                                  approvedBudgetXlm: newTotal
+                                                }
+                                              }));
+
+                                              if (newTotal > 0) {
+                                                updated.forEach((p) => {
+                                                  p.percentage = (p.amountXlm / newTotal) * 100;
+                                                });
+                                              }
+                                              setAdminPhases(updated);
+                                            }}
+                                          >
+                                            ✓ Accept
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.7rem", color: "#64748b", lineHeight: "1.3" }}>
+                                        {rp.description}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </details>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+                        <h4 style={{ fontSize: "0.95rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>Adjust Tranche Releases (Split or Combine):</h4>
+                        <button type="button" className="btn btn-sm btn-outline-navy" onClick={handleAdminAddPhase}>
+                          <Plus size={14} /> Add Tranche
+                        </button>
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        {adminPhases.map((ph, idx) => {
+                          return (
+                            <div key={idx} style={{ background: "#ffffff", border: "1px solid #cbd5e1", padding: "1.25rem", borderRadius: "16px", display: "flex", flexDirection: "column", gap: "0.75rem", boxShadow: "0 4px 12px rgba(0, 0, 0, 0.02)" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontWeight: 800, fontSize: "0.9rem", color: "#0f172a" }}>Tranche #{ph.phaseNumber}</span>
+                                {adminPhases.length > 1 && (
+                                  <button type="button" style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "0.2rem" }} onClick={() => handleAdminRemovePhase(idx)}>
+                                    <Trash2 size={16} />
+                                  </button>
+                                )}
+                              </div>
+
+                              <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "0.75rem" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569" }}>Tranche Title</label>
+                                  <input
+                                    type="text"
+                                    style={modernInputStyle}
+                                    placeholder="Tranche Title (e.g. Initial Procurement)"
+                                    value={ph.title}
+                                    onChange={(e) => {
+                                      const updated = [...adminPhases];
+                                      updated[idx].title = e.target.value;
+                                      setAdminPhases(updated);
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569" }}>Release Percentage</label>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                                    <input
+                                      type="number"
+                                      style={{ ...modernInputStyle, textAlign: "right" }}
+                                      value={ph.percentage}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        const updated = [...adminPhases];
+                                        updated[idx].percentage = val;
+                                        updated[idx].amountXlm = (total * val) / 100;
+                                        setAdminPhases(updated);
+                                      }}
+                                    />
+                                    <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "#475569" }}>%</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569" }}>Scope / Deliverables Description</label>
+                                <input
+                                  type="text"
+                                  style={modernInputStyle}
+                                  placeholder="Tranche scope and itemized costs"
+                                  value={ph.description || ""}
+                                  onChange={(e) => {
+                                    const updated = [...adminPhases];
+                                    updated[idx].description = e.target.value;
+                                    setAdminPhases(updated);
+                                  }}
+                                />
+                              </div>
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569" }}>Required Proof Document Types</label>
+                                <input
+                                  type="text"
+                                  style={modernInputStyle}
+                                  placeholder="Required Phase Proofs (e.g. photos, receipt links)"
+                                  value={ph.requiredProofs || ""}
+                                  onChange={(e) => {
+                                    const updated = [...adminPhases];
+                                    updated[idx].requiredProofs = e.target.value;
+                                    setAdminPhases(updated);
+                                  }}
+                                />
+                              </div>
+
+                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#475569" }}>Tranche Budget (XLM)</label>
+                                  <input
+                                    type="number"
+                                    style={modernInputStyle}
+                                    value={ph.amountXlm || 0}
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value) || 0;
+                                      const updated = [...adminPhases];
+                                      updated[idx].amountXlm = val;
+
+                                      // 1. Calculate new total budget
+                                      const newTotal = updated.reduce((acc, curr) => acc + (curr.amountXlm || 0), 0);
+
+                                      // 2. Update the total budget in proposalEdits
+                                      setProposalEdits(prev => ({
+                                        ...prev,
+                                        [activeAdminModalProp!.id!]: {
+                                          ...prev[activeAdminModalProp!.id!],
+                                          approvedBudgetXlm: newTotal
+                                        }
+                                      }));
+
+                                      // 3. Recalculate percentages for all phases
+                                      if (newTotal > 0) {
+                                        updated.forEach((p) => {
+                                          p.percentage = (p.amountXlm / newTotal) * 100;
+                                        });
+                                      }
+                                      setAdminPhases(updated);
+                                    }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                  <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#64748b" }}>PHP Equivalent</label>
+                                  <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", padding: "0.6rem 0" }}>
+                                    ≈ {formatXlmToPhp(ph.amountXlm || 0)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* AI Phase Audit Feedback Block inside card */}
+                              {adminAIAnalysis && (() => {
+                                const fb = adminAIAnalysis.phaseFeedbacks.find(f => f.phaseNumber === ph.phaseNumber || f.phaseNumber === idx + 1);
+                                if (!fb) return null;
+                                const isGood = fb.status === "good";
+                                return (
+                                  <div style={{
+                                    background: isGood ? "rgba(16,185,129,0.04)" : "rgba(245,158,11,0.04)",
+                                    borderLeft: `3px solid ${isGood ? "#10b981" : "#f59e0b"}`,
+                                    padding: "0.75rem 1rem",
+                                    borderRadius: "10px",
+                                    marginTop: "0.25rem",
+                                    fontSize: "0.78rem",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "0.25rem"
+                                  }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                      <span style={{ fontWeight: 800, color: isGood ? "#065f46" : "#78350f" }}>🤖 AI Tranche Review:</span>
+                                      <span style={{
+                                        fontSize: "0.65rem",
+                                        fontWeight: 800,
+                                        textTransform: "uppercase",
+                                        padding: "0.15rem 0.4rem",
+                                        borderRadius: "4px",
+                                        background: isGood ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
+                                        color: isGood ? "#10b981" : "#d97706"
+                                      }}>
+                                        {fb.status.replace("_", " ")}
+                                      </span>
+                                    </div>
+                                    <div style={{ color: "#374151" }}>{fb.assessment}</div>
+                                    <div style={{ color: "#0284c7", fontWeight: 700 }}>💡 Recommendation: {fb.recommendation}</div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Percentage Sum Check */}
+                      {!isSumValid && (
+                        <div style={{ background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", padding: "0.75rem 1rem", borderRadius: "12px", color: "#b91c1c", fontSize: "0.82rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1rem" }}>
+                          <span>⚠️ Total allocated: <strong>{totalPercentage}%</strong>. Tranches must sum to exactly 100% to proceed.</span>
+                        </div>
+                      )}
+
+                      {/* Modal Action Footer */}
+                      <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
+                        <button type="button" className="btn btn-outline-navy flex-grow" onClick={() => setActiveAdminModalProp(null)}>
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-success flex-grow"
+                          disabled={!isSumValid}
+                          style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.4rem", opacity: isSumValid ? 1 : 0.5, cursor: isSumValid ? "pointer" : "not-allowed" }}
+                          onClick={() => {
+                            if (activeAdminModalProp) {
+                              activeAdminModalProp.phases = adminPhases;
+                              handleApproveProposal(activeAdminModalProp);
+                              setActiveAdminModalProp(null);
+                            }
+                          }}
+                        >
+                          <CheckCircle2 size={16} /> Save Tranches & Approve On-Chain
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
 
           <div className="grid-2">
             {/* Pending Residents Verification Queue */}
@@ -1215,27 +2328,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                     </div>
                   </div>
                 ) : (
-                  <div style={{ background: "rgba(245, 158, 11, 0.05)", border: "1px solid #f59e0b", borderRadius: "12px", padding: "1rem", marginBottom: "1.2rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                    <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                      <AlertCircle size={16} style={{ color: "#d97706" }} />
-                      <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#b45309" }}>AI Verification Log Offline</span>
-                    </div>
-                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                      {selectedUser.verificationNotes || "Gemini AI analysis details are missing for this user. Auditing resident document status via manual review."}
-                    </p>
-                    {/* Local Duplicate checks */}
-                    <div style={{ marginTop: "0.5rem", borderTop: "1px solid #fed7aa", paddingTop: "0.5rem" }}>
-                      <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>Local Database Scan:</span>
-                      {(() => {
-                        const risk = getDuplicateRisk(selectedUser);
-                        return (
-                          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: "0.25rem" }}>
-                            <span className={`badge ${risk.color}`} style={{ padding: "0.15rem 0.4rem", fontSize: "0.68rem" }}>{risk.text}</span>
-                            {risk.reasons.length > 0 && <span style={{ fontSize: "0.68rem", color: "var(--danger)" }}>({risk.reasons[0]})</span>}
+                  <div>
+                    {(() => {
+                      const risk = getDuplicateRisk(selectedUser);
+                      const isDuplicateIntercepted = risk.reasons.length > 0 || selectedUser.verificationStatus === "auto_rejected";
+                      
+                      return (
+                        <div style={{ 
+                          background: isDuplicateIntercepted ? "rgba(239, 68, 68, 0.05)" : "rgba(245, 158, 11, 0.05)", 
+                          border: isDuplicateIntercepted ? "1px solid #ef4444" : "1px solid #f59e0b", 
+                          borderRadius: "12px", 
+                          padding: "1rem", 
+                          marginBottom: "1.2rem", 
+                          display: "flex", 
+                          flexDirection: "column", 
+                          gap: "0.4rem" 
+                        }}>
+                          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                            <AlertCircle size={16} style={{ color: isDuplicateIntercepted ? "#dc2626" : "#d97706" }} />
+                            <span style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: isDuplicateIntercepted ? "#b91c1c" : "#b45309" }}>
+                              {isDuplicateIntercepted ? "Fast-Path Fraud Guard Interception" : "Manual Document Audit Required"}
+                            </span>
                           </div>
-                        );
-                      })()}
-                    </div>
+                          <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+                            {isDuplicateIntercepted
+                              ? "Gemini AI deep-scan was safely bypassed because an immediate duplicate identity was detected by the database pre-screening system."
+                              : (selectedUser.verificationNotes || "No automated AI analysis log is associated with this profile. Please review the submitted ID document manually below.")
+                            }
+                          </p>
+
+                          {/* Local Duplicate checks */}
+                          <div style={{ marginTop: "0.5rem", borderTop: isDuplicateIntercepted ? "1px solid #fca5a5" : "1px solid #fed7aa", paddingTop: "0.5rem" }}>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)" }}>Local Database Scan Result:</span>
+                            <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginTop: "0.25rem", flexWrap: "wrap" }}>
+                              <span className={`badge ${risk.color}`} style={{ padding: "0.2rem 0.5rem", fontSize: "0.72rem", fontWeight: 600 }}>{risk.text}</span>
+                              {risk.reasons.map((reason: string, rIdx: number) => (
+                                <span key={rIdx} style={{ fontSize: "0.72rem", color: "#dc2626", fontWeight: 600, display: "block", width: "100%" }}>
+                                  ⚠️ {reason}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -1567,7 +2703,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ adminAddress, onExecute 
                     </div>
                     <button
                       className="btn btn-primary w-100"
-                      disabled={!selectedUser.walletAddress}
                       onClick={() => handleApprove(selectedUser, "youth")}
                     >
                       Approve & Verify Resident

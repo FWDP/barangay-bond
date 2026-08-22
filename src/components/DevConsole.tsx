@@ -4,11 +4,13 @@ import { logger } from "../utils/logger";
 import type { LogEntry, LogCategory } from "../utils/logger";
 import { X, Search, Download, Clipboard, Trash2, Terminal, Mail, ChevronDown, ChevronUp } from "lucide-react";
 import { db } from "../services/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, getDocs, writeBatch } from "firebase/firestore";
+import { useLoading } from "../contexts/LoadingContext";
 
 export const DevConsole: React.FC = () => {
   if (!DEBUG_MODE) return null;
 
+  const { startLoading, stopLoading } = useLoading();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "general" | "auth" | "firestore" | "gemini" | "wallet" | "soroban" | "events" | "errors" | "emails"
@@ -24,15 +26,20 @@ export const DevConsole: React.FC = () => {
   useEffect(() => {
     if (!DEBUG_MODE) return;
     const q = query(collection(db, "mail"), orderBy("timestamp", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: any[] = [];
-      snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() });
-      });
-      setEmails(list);
-    }, (err) => {
-      console.error("DevConsole failed to stream /mail collection:", err);
-    });
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: any[] = [];
+        snapshot.forEach((doc) => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        setEmails(list);
+      },
+      (err) => {
+        // Silently log permission or offline error in debug mode without raising unhandled exception
+        logger.debug(`[DevConsole] Mail stream notice: ${err.message}`, "Firestore");
+      }
+    );
     return () => unsubscribe();
   }, []);
 
@@ -73,6 +80,64 @@ export const DevConsole: React.FC = () => {
       bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logs, isOpen, activeTab]);
+
+  const handleResetProposals = async () => {
+    if (!window.confirm("Are you sure you want to reset all approved proposals back to Pending Review so you can re-approve them on the new contract?")) return;
+    try {
+      startLoading({
+        category: "crud",
+        title: "💾 Resetting Proposals Status",
+        message: "Applying rollback states to all Firestore proposal documents...",
+      });
+      const q = query(collection(db, "project_proposals"));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.forEach((d) => {
+        batch.update(d.ref, {
+          status: "pending_admin_approval",
+          onChainProjectId: null,
+          txHash: null,
+          phaseProofRequirements: null,
+          additionalProofs: null,
+        });
+        count++;
+      });
+      await batch.commit();
+      alert(`Successfully reset ${count} proposals back to pending admin approval!`);
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to reset proposals: " + err.message);
+    } finally {
+      stopLoading();
+    }
+  };
+
+  const handleDeleteAllProposals = async () => {
+    if (!window.confirm("Are you sure you want to PERMANENTLY delete all project proposals in Firestore?")) return;
+    try {
+      startLoading({
+        category: "crud",
+        title: "💾 Deleting Project Proposals",
+        message: "Wiping all proposal entries and audit summaries from Firestore...",
+      });
+      const q = query(collection(db, "project_proposals"));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      let count = 0;
+      snapshot.forEach((d) => {
+        batch.delete(d.ref);
+        count++;
+      });
+      await batch.commit();
+      alert(`Successfully deleted ${count} proposals!`);
+    } catch (err: any) {
+      console.error(err);
+      alert("Failed to delete proposals: " + err.message);
+    } finally {
+      stopLoading();
+    }
+  };
 
   const handleExport = (format: "json" | "csv" | "txt") => {
     const filtered = getFilteredLogs();
@@ -354,8 +419,42 @@ export const DevConsole: React.FC = () => {
                     DISABLE DEBUG MODE (Production View)
                   </button>
                   <span style={{ color: "#94a3b8", fontSize: "0.7rem" }}>
-                    Warning: Turning this off disables this console overlay and all in-memory logging. Use local storage "BB_DEBUG_MODE" = "true" to restore.
+                    Warning: Turning this off disables this console overlay.
                   </span>
+                </div>
+
+                <strong style={{ color: "#38bdf8", fontSize: "0.82rem", marginTop: "0.8rem", display: "block" }}>Database Reset & Maintenance</strong>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
+                  <button
+                    onClick={handleResetProposals}
+                    style={{
+                      background: "#f59e0b",
+                      color: "#0f172a",
+                      border: "none",
+                      padding: "0.35rem 0.8rem",
+                      borderRadius: "6px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontSize: "0.72rem"
+                    }}
+                  >
+                    🔄 RESET APPROVED PROPOSALS TO PENDING REVIEW
+                  </button>
+                  <button
+                    onClick={handleDeleteAllProposals}
+                    style={{
+                      background: "#ef4444",
+                      color: "#ffffff",
+                      border: "none",
+                      padding: "0.35rem 0.8rem",
+                      borderRadius: "6px",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontSize: "0.72rem"
+                    }}
+                  >
+                    🗑️ DELETE ALL PROPOSALS
+                  </button>
                 </div>
               </div>
             )}
