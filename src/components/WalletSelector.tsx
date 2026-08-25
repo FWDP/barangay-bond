@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { useWallet } from "../contexts/WalletContext";
 import { useAuth } from "../contexts/AuthContext";
 import { requestWalletLinkSignature } from "../wallet/wallet";
 import { logger } from "../utils/logger";
-import { Wallet, Unlink } from "lucide-react";
+import { Wallet, Unlink, Copy, Check, ExternalLink } from "lucide-react";
 
 interface WalletSelectorProps {
   balance: string;
@@ -14,13 +14,23 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
     useWallet();
   const { user, profile, linkWallet, unlinkWallet } = useAuth();
 
+  const [copied, setCopied] = useState(false);
+
   const truncateAddress = (addr: string) => {
-    return `${addr.slice(0, 5)}...${addr.slice(-4)}`;
+    return `${addr.slice(0, 4)}...${addr.slice(-4)}`;
+  };
+
+  const copyAddress = (addr: string) => {
+    if (!addr) return;
+    navigator.clipboard.writeText(addr);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const profileWallet = profile?.walletAddress;
   const isMismatched = profileWallet && address && profileWallet.toLowerCase() !== address.toLowerCase();
   const isLinked = profileWallet && (!address || profileWallet.toLowerCase() === address.toLowerCase());
+  const activeAddr = address || profileWallet || "";
 
   const [linkedToOtherProfile, setLinkedToOtherProfile] = React.useState<boolean>(false);
   const [checkingLink, setCheckingLink] = React.useState<boolean>(false);
@@ -126,7 +136,7 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
       {!profileWallet ? (
         // Case A: No wallet linked yet
         connected && address ? (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "var(--bg-elevated)", padding: "0.3rem 0.65rem", borderRadius: "10px", border: "1px solid var(--border-primary)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "var(--bg-elevated)", padding: "0.3rem 0.65rem", borderRadius: "12px", border: "1px solid var(--border-primary)" }}>
             <span className="badge badge-info" style={{ fontSize: "0.68rem" }}>{walletId ? walletId.toUpperCase() : "CONNECTED"}</span>
             <code style={{ fontSize: "0.78rem", color: "var(--text-primary)", fontWeight: 700 }}>{truncateAddress(address)}</code>
             {linkedToOtherProfile ? (
@@ -134,17 +144,17 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
                 Disconnect
               </button>
             ) : (
-              <button className="btn btn-primary btn-sm" style={{ minHeight: "26px", padding: "0.15rem 0.55rem", fontSize: "0.72rem" }} onClick={handleLink} disabled={checkingLink}>
+              <button className="btn btn-primary btn-sm tap-scale" style={{ minHeight: "26px", padding: "0.15rem 0.55rem", fontSize: "0.72rem" }} onClick={handleLink} disabled={checkingLink}>
                 {checkingLink ? "Linking..." : "Link"}
               </button>
             )}
           </div>
         ) : (
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary btn-sm tap-scale"
             onClick={handleLink}
             disabled={checkingLink || isPending}
-            style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", minHeight: "36px", borderRadius: "10px" }}
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.75rem", minHeight: "36px", borderRadius: "12px", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}
           >
             <Wallet size={14} />
             {isPending ? "Locked" : checkingLink ? "Connecting..." : "Link Wallet"}
@@ -152,18 +162,44 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
         )
       ) : (
         // Case B: Wallet linked
-        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", background: "var(--bg-elevated)", padding: "0.35rem 0.75rem", borderRadius: "10px", border: "1px solid var(--border-primary)" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: isMismatched ? "#f59e0b" : "var(--accent-green)", display: "inline-block" }} />
-          <code style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--text-primary)" }}>
-            {truncateAddress(address || profileWallet)}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", background: "var(--bg-elevated)", padding: "0.35rem 0.75rem", borderRadius: "12px", border: "1px solid var(--border-primary)", boxShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+          <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: isMismatched ? "#f59e0b" : "var(--accent-green)", display: "inline-block", boxShadow: isMismatched ? "0 0 8px #f59e0b" : "0 0 8px var(--accent-green)" }} />
+          
+          <code
+            style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--text-primary)", cursor: "pointer" }}
+            onClick={() => copyAddress(activeAddr)}
+            title="Click to copy address"
+          >
+            {truncateAddress(activeAddr)}
           </code>
+
+          <button
+            type="button"
+            onClick={() => copyAddress(activeAddr)}
+            style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.1rem", display: "flex", alignItems: "center" }}
+            title={copied ? "Copied!" : "Copy Address"}
+          >
+            {copied ? <Check size={12} style={{ color: "var(--accent-green)" }} /> : <Copy size={12} />}
+          </button>
+
+          {activeAddr && (
+            <a
+              href={`https://stellar.expert/explorer/testnet/account/${activeAddr}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--text-muted)", display: "flex", alignItems: "center", textDecoration: "none" }}
+              title="View on Stellar Expert Explorer"
+            >
+              <ExternalLink size={12} />
+            </a>
+          )}
 
           {isMismatched ? (
             <span className="badge badge-warning" style={{ fontSize: "0.65rem", padding: "0.1rem 0.35rem" }}>
               Mismatch
             </span>
           ) : (
-            <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--accent-green)" }}>
+            <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--accent-green)", marginLeft: "0.2rem" }}>
               {balance} XLM
             </span>
           )}
@@ -171,7 +207,7 @@ export const WalletSelector: React.FC<WalletSelectorProps> = ({ balance }) => {
           {isLinked && (
             <button
               onClick={handleUnlink}
-              style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.1rem", display: "flex", alignItems: "center" }}
+              style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: "0.1rem", display: "flex", alignItems: "center", marginLeft: "0.2rem" }}
               title="Unlink Wallet"
             >
               <Unlink size={13} />

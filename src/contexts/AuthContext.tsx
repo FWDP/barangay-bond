@@ -158,95 +158,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profileUnsubscribe = userRepository.subscribeToUserProfile(
             currentUser.uid,
             async (userProfile) => {
-              if (!userProfile) {
-                logger.info(`Auth session active but profile missing in Firestore for: ${currentUser.email || currentUser.uid}. User is in onboarding phase.`, "AuthContext");
-                setProfile(null);
-                return;
-              }
-
-              let currentProfile = { ...userProfile };
-
-              // Check dynamic SK Official Term Expiration
-              if (currentProfile.role === "sk_official" && currentProfile.termEnd) {
-                const today = new Date().toISOString().split("T")[0];
-                if (today > currentProfile.termEnd) {
-                  logger.warn(`SK term expired for logged-in user ${currentProfile.name} on ${currentProfile.termEnd}. Reverting to Resident...`, "AuthContext");
-
-                  const expiredUpdates = {
-                    role: "resident" as const,
-                    position: "none" as const,
-                    status: "active" as const,
-                    permissions: []
-                  };
-
-                  await userRepository.updateUserProfile(currentUser.uid, expiredUpdates);
-                  await emailService.triggerLifecycleEmail("sk_expired", currentProfile.email, {
-                    name: currentProfile.name,
-                    barangayName: currentProfile.barangayName
-                  });
-
-                  await auditRepository.writeAuditLog({
-                    action: "sk_official_expired",
-                    category: "Governance",
-                    severity: "Warning",
-                    actorUid: "system_auto",
-                    actorName: "System Automation",
-                    actorRole: "system",
-                    targetUid: currentUser.uid,
-                    targetName: currentProfile.name,
-                    targetRole: "resident",
-                    barangayId: currentProfile.barangayId,
-                    device: "Server/Cron",
-                    timestamp: new Date().toISOString(),
-                    notes: `SK term for position ${currentProfile.position} expired automatically on ${currentProfile.termEnd}`
-                  });
-
-                  await notificationRepository.createNotification({
-                    barangayId: currentProfile.barangayId,
-                    targetUid: currentUser.uid,
-                    title: "SK Official Position Expired",
-                    message: `Your term limits for SK ${currentProfile.position} ended on ${currentProfile.termEnd}. Profile role has reverted to Resident.`,
-                    createdAt: new Date().toISOString(),
-                    read: false
-                  });
-
-                  currentProfile = { ...currentProfile, ...expiredUpdates };
+              try {
+                if (!userProfile) {
+                  logger.info(`Auth session active but profile missing in Firestore for: ${currentUser.email || currentUser.uid}. User is in onboarding phase.`, "AuthContext");
+                  setProfile(null);
+                  return;
                 }
-              }
 
-              if (!currentProfile.walletAddress || !currentProfile.inAppWalletSecret) {
+                let currentProfile = { ...userProfile };
+
+                // Check dynamic SK Official Term Expiration
+                if (currentProfile.role === "sk_official" && currentProfile.termEnd) {
+                  const today = new Date().toISOString().split("T")[0];
+                  if (today > currentProfile.termEnd) {
+                    logger.warn(`SK term expired for logged-in user ${currentProfile.name} on ${currentProfile.termEnd}. Reverting to Resident...`, "AuthContext");
+
+                    const expiredUpdates = {
+                      role: "resident" as const,
+                      position: "none" as const,
+                      status: "active" as const,
+                      permissions: []
+                    };
+
+                    await userRepository.updateUserProfile(currentUser.uid, expiredUpdates);
+                    await emailService.triggerLifecycleEmail("sk_expired", currentProfile.email, {
+                      name: currentProfile.name,
+                      barangayName: currentProfile.barangayName
+                    });
+
+                    await auditRepository.writeAuditLog({
+                      action: "sk_official_expired",
+                      category: "Governance",
+                      severity: "Warning",
+                      actorUid: "system_auto",
+                      actorName: "System Automation",
+                      actorRole: "system",
+                      targetUid: currentUser.uid,
+                      targetName: currentProfile.name,
+                      targetRole: "resident",
+                      barangayId: currentProfile.barangayId,
+                      device: "Server/Cron",
+                      timestamp: new Date().toISOString(),
+                      notes: `SK term for position ${currentProfile.position} expired automatically on ${currentProfile.termEnd}`
+                    });
+
+                    await notificationRepository.createNotification({
+                      barangayId: currentProfile.barangayId,
+                      targetUid: currentUser.uid,
+                      title: "SK Official Position Expired",
+                      message: `Your term limits for SK ${currentProfile.position} ended on ${currentProfile.termEnd}. Profile role has reverted to Resident.`,
+                      createdAt: new Date().toISOString(),
+                      read: false
+                    });
+
+                    currentProfile = { ...currentProfile, ...expiredUpdates };
+                  }
+                }
+
+                // Always ensure in-app wallet is provisioned and public-secret keys are in 100% cryptographic alignment
                 currentProfile = await inAppWalletService.ensureUserWallet(currentProfile);
-              }
 
-              if (currentProfile.status === "inactive") {
-                const reason = currentProfile.verificationNotes || currentProfile.resubmissionReason || currentProfile.autoRejectReason || "Please contact your Barangay Administrator.";
-                const message = `Your account is inactive. ${reason}`;
-                logger.warn(`Auth session active but status is INACTIVE for: ${currentUser.email || currentUser.uid}. Marking account inactive and preserving session for recovery.`, "AuthContext");
-                setAuthError(message);
-                setProfile(currentProfile);
-              } else {
-                setProfile(currentProfile);
-                localStorage.setItem(AUTH_SESSION_UID_KEY, currentUser.uid);
-                localStorage.setItem(AUTH_SESSION_EMAIL_KEY, currentProfile.email || currentUser.email || "");
-                localStorage.setItem(AUTH_SESSION_LAST_SIGNED_IN_KEY, new Date().toISOString());
+                if (currentProfile.status === "inactive") {
+                  const reason = currentProfile.verificationNotes || currentProfile.resubmissionReason || currentProfile.autoRejectReason || "Please contact your Barangay Administrator.";
+                  const message = `Your account is inactive. ${reason}`;
+                  logger.warn(`Auth session active but status is INACTIVE for: ${currentUser.email || currentUser.uid}. Marking account inactive and preserving session for recovery.`, "AuthContext");
+                  setAuthError(message);
+                  setProfile(currentProfile);
+                } else {
+                  setProfile(currentProfile);
+                  localStorage.setItem(AUTH_SESSION_UID_KEY, currentUser.uid);
+                  localStorage.setItem(AUTH_SESSION_EMAIL_KEY, currentProfile.email || currentUser.email || "");
+                  localStorage.setItem(AUTH_SESSION_LAST_SIGNED_IN_KEY, new Date().toISOString());
 
-                if (currentProfile.role === "system_admin" || currentProfile.role === "barangay_admin") {
-                  await loadUsersList(currentProfile);
+                  if (currentProfile.role === "system_admin" || currentProfile.role === "barangay_admin") {
+                    await loadUsersList(currentProfile);
+                  }
                 }
+              } catch (err: any) {
+                logger.error(`Error processing profile: ${err.message}`, "AuthContext");
+              } finally {
+                setLoading(false);
               }
             },
             (err) => {
               logger.error(`Error streaming profile: ${err.message}`, "AuthContext");
+              setLoading(false);
             }
           );
         } catch (err) {
           console.error("Error setting up profile snapshot listener:", err);
+          setLoading(false);
         }
       } else {
         setProfile(null);
         setDbUsers([]);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => {

@@ -40,7 +40,7 @@ export const governanceService = {
       throw new Error(`A resident is already assigned as active SK ${position} in this Barangay.`);
     }
 
-    // 1. Create a historical record in terms subcollection
+    // 1. Create a historical record in terms subcollection and user.skHistory array
     const termsColl = collection(db, "users", residentUid, "terms");
     await dbAddDoc(termsColl, {
       position,
@@ -51,6 +51,18 @@ export const governanceService = {
       timestamp: new Date().toISOString()
     });
 
+    const currentHistory = targetData.skHistory || [];
+    const newTermRecord = {
+      position,
+      termStart,
+      termEnd,
+      assignedAt: new Date().toISOString(),
+      barangayId: adminProfile.barangayId,
+      barangayName: adminProfile.barangayName,
+      assignedByAdminUid: adminProfile.uid,
+      assignedByAdminName: adminProfile.name,
+    };
+
     // 2. Perform updates
     const updates = {
       role: "sk_official" as const,
@@ -58,6 +70,8 @@ export const governanceService = {
       status: "active" as const,
       termStart,
       termEnd,
+      acknowledgedPromotion: false,
+      skHistory: [...currentHistory, newTermRecord],
       permissions: ["create_project", "upload_proof", "manage_milestones"]
     };
     await userRepository.updateUserProfile(residentUid, updates);
@@ -84,8 +98,8 @@ export const governanceService = {
     await notificationRepository.createNotification({
       barangayId: adminProfile.barangayId,
       targetUid: residentUid,
-      title: "Promoted to SK Official",
-      message: `You have been promoted to SK ${position} by your Barangay Admin. Escrow proposal modules are now unlocked.`,
+      title: "🎉 Congratulations! Promoted to SK Official",
+      message: `You have been officially appointed as SK ${position.toUpperCase()} by Barangay Admin ${adminProfile.name}. Your term runs from ${termStart} to ${termEnd}. Governance proposal modules are now unlocked!`,
       createdAt: new Date().toISOString(),
       read: false
     });
@@ -123,10 +137,18 @@ export const governanceService = {
       timestamp: new Date().toISOString()
     });
 
+    const updatedHistory = (targetData.skHistory || []).map((term, idx, arr) => {
+      if (idx === arr.length - 1 && !term.revokedAt) {
+        return { ...term, revokedAt: new Date().toISOString() };
+      }
+      return term;
+    });
+
     const updates = {
       role: "resident" as const,
       position: "none" as const,
-      status: "inactive" as const,
+      status: "active" as const,
+      skHistory: updatedHistory,
       permissions: []
     };
     await userRepository.updateUserProfile(residentUid, updates);

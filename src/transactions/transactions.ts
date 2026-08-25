@@ -1,6 +1,7 @@
-import { nativeToScVal, Transaction, Keypair, xdr } from "@stellar/stellar-sdk";
+import { nativeToScVal, Transaction, Keypair, xdr, TransactionBuilder, Operation, Asset, Memo, Horizon } from "@stellar/stellar-sdk";
 import { buildWriteTransaction, rpcServer } from "../rpc/rpc";
 import { signTransaction } from "../wallet/wallet";
+import { STELLAR_CONFIG } from "../configuration/config";
 import type { TransactionStatus } from "../types";
 import { logger } from "../utils/logger";
 import { DEBUG_MODE } from "../config/debug";
@@ -104,9 +105,22 @@ async function executeContractWrite(
 
   let signedTxXdr: string;
   try {
+    let kp: Keypair | null = null;
     if (secretKey) {
-      logger.blockchain("Signing transaction via in-app wallet...", "Wallet", { correlationId });
-      const kp = Keypair.fromSecret(secretKey);
+      try {
+        const candidateKp = Keypair.fromSecret(secretKey);
+        if (candidateKp.publicKey() === userAddress) {
+          kp = candidateKp;
+        } else {
+          logger.warn(`In-app wallet secret public key (${candidateKp.publicKey()}) does not match active address (${userAddress}). Falling back to external wallet extension...`, "Wallet", { correlationId });
+        }
+      } catch (e) {
+        logger.warn("Invalid in-app wallet secret key provided. Falling back to wallet extension...", "Wallet", { correlationId });
+      }
+    }
+
+    if (kp) {
+      logger.blockchain("Signing transaction via matching in-app wallet key...", "Wallet", { correlationId });
       preparedTx.sign(kp);
       signedTxXdr = preparedTx.toXDR();
       logger.success("Transaction signed successfully by in-app wallet.", "Wallet", { correlationId });
@@ -152,14 +166,15 @@ export async function verifyResident(
   adminAddress: string,
   residentAddress: string,
   isYouth: boolean,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const args = [
     nativeToScVal(adminAddress, { type: "address" }),
     nativeToScVal(residentAddress, { type: "address" }),
     nativeToScVal(isYouth),
   ];
-  return executeContractWrite(adminAddress, "verify_resident", args, onStatusChange);
+  return executeContractWrite(adminAddress, "verify_resident", args, onStatusChange, secretKey);
 }
 
 /**
@@ -169,14 +184,15 @@ export async function verifySKOfficial(
   adminAddress: string,
   officialAddress: string,
   isSK: boolean,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const args = [
     nativeToScVal(adminAddress, { type: "address" }),
     nativeToScVal(officialAddress, { type: "address" }),
     nativeToScVal(isSK),
   ];
-  return executeContractWrite(adminAddress, "verify_sk_official", args, onStatusChange);
+  return executeContractWrite(adminAddress, "verify_sk_official", args, onStatusChange, secretKey);
 }
 
 /**
@@ -189,7 +205,9 @@ export async function createProject(
   budgetAmountXlm: number,
   description: string,
   milestonePercentages: number[],
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string,
+  immediatePhase1: boolean = true
 ): Promise<string> {
   // Convert XLM to stroops (7 decimal places)
   const budgetStroops = BigInt(Math.round(budgetAmountXlm * 10000000));
@@ -200,8 +218,9 @@ export async function createProject(
     nativeToScVal(budgetStroops, { type: "i128" }),
     nativeToScVal(description),
     nativeToScVal(milestonePercentages.map((m) => nativeToScVal(m, { type: "u32" }))),
+    nativeToScVal(immediatePhase1),
   ];
-  return executeContractWrite(adminAddress, "create_project", args, onStatusChange);
+  return executeContractWrite(adminAddress, "create_project", args, onStatusChange, secretKey);
 }
 
 /**
@@ -212,7 +231,8 @@ export async function submitMilestoneProof(
   projectId: number,
   milestoneIndex: number,
   proofUrl: string,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const args = [
     nativeToScVal(skAddress, { type: "address" }),
@@ -220,7 +240,7 @@ export async function submitMilestoneProof(
     nativeToScVal(milestoneIndex, { type: "u32" }),
     nativeToScVal(proofUrl),
   ];
-  return executeContractWrite(skAddress, "submit_milestone_proof", args, onStatusChange);
+  return executeContractWrite(skAddress, "submit_milestone_proof", args, onStatusChange, secretKey);
 }
 
 /**
@@ -249,11 +269,119 @@ export async function voteMilestone(
 export async function refundProject(
   skAddress: string,
   projectId: number,
-  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void
+  onStatusChange: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
 ): Promise<string> {
   const args = [
     nativeToScVal(skAddress, { type: "address" }),
     nativeToScVal(projectId, { type: "u32" }),
   ];
-  return executeContractWrite(skAddress, "refund_project", args, onStatusChange);
+  return executeContractWrite(skAddress, "refund_project", args, onStatusChange, secretKey);
 }
+
+/**
+ * Transfer native XLM to a destination Stellar account (for QR Pay).
+ */
+export async function sendNativePayment(
+  fromAddress: string,
+  toAddress: string,
+  amountXlm: string,
+  memoText?: string,
+  onStatusChange?: (status: TransactionStatus, txHash?: string, error?: string) => void,
+  secretKey?: string
+): Promise<string> {
+  if (onStatusChange) onStatusChange("Pending");
+
+  try {
+    const horizon = new Horizon.Server(STELLAR_CONFIG.horizonUrl);
+    const sourceAccount = await horizon.loadAccount(fromAddress);
+
+    // Check if the destination account exists on the Stellar ledger
+    let destinationExists = true;
+    try {
+      await horizon.loadAccount(toAddress);
+    } catch (destErr: any) {
+      if (
+        destErr?.response?.status === 404 ||
+        destErr?.status === 404 ||
+        destErr?.message?.includes("Not Found") ||
+        destErr?.message?.includes("404")
+      ) {
+        destinationExists = false;
+      }
+    }
+
+    if (!destinationExists && parseFloat(amountXlm) < 1) {
+      throw new Error(
+        "The recipient account is new and unfunded on the Stellar ledger. A minimum starting balance of 1.0 XLM is required to create and activate a new Stellar account."
+      );
+    }
+
+    const op = destinationExists
+      ? Operation.payment({
+          destination: toAddress,
+          asset: Asset.native(),
+          amount: amountXlm,
+        })
+      : Operation.createAccount({
+          destination: toAddress,
+          startingBalance: amountXlm,
+        });
+
+    let txBuilder = new TransactionBuilder(sourceAccount, {
+      fee: "100000",
+      networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+    })
+      .addOperation(op)
+      .setTimeout(30);
+
+    if (memoText && memoText.trim()) {
+      txBuilder = txBuilder.addMemo(Memo.text(memoText.trim().slice(0, 28)));
+    }
+
+    const builtTx = txBuilder.build();
+    let signedTx: Transaction;
+
+    if (secretKey) {
+      const kp = Keypair.fromSecret(secretKey);
+      builtTx.sign(kp);
+      signedTx = builtTx;
+    } else {
+      const signedXdr = await signTransaction(builtTx.toXDR(), fromAddress);
+      signedTx = new Transaction(signedXdr, STELLAR_CONFIG.networkPassphrase);
+    }
+
+    if (onStatusChange) onStatusChange("Submitted");
+
+    const result = await horizon.submitTransaction(signedTx);
+    const txHash = result.hash;
+
+    if (onStatusChange) onStatusChange("Confirmed", txHash);
+    return txHash;
+  } catch (err: any) {
+    console.error("Payment transfer failed:", err);
+    let detailedError = err.message || "Payment transfer failed";
+
+    // Parse Horizon result codes if available
+    const resultCodes = err?.response?.data?.extras?.result_codes;
+    if (resultCodes) {
+      const opCodes = (resultCodes.operations || []).join(", ");
+      const txCode = resultCodes.transaction || "";
+      if (opCodes.includes("op_no_destination")) {
+        detailedError = "Recipient account does not exist on Stellar. Send at least 1.0 XLM to create the account.";
+      } else if (opCodes.includes("op_underfunded") || txCode === "tx_insufficient_balance") {
+        detailedError = "Insufficient available XLM balance in your wallet (remember to keep 1.5 XLM for Stellar minimum reserve).";
+      } else if (opCodes.includes("op_low_reserve")) {
+        detailedError = "Transfer amount would leave your wallet balance below the Stellar minimum account reserve (1.5 XLM).";
+      } else if (txCode === "tx_bad_auth") {
+        detailedError = "Transaction signature verification failed.";
+      } else {
+        detailedError = `Stellar transaction rejected: ${txCode} ${opCodes ? `(${opCodes})` : ""}`;
+      }
+    }
+
+    if (onStatusChange) onStatusChange("Failed", undefined, detailedError);
+    throw new Error(detailedError);
+  }
+}
+

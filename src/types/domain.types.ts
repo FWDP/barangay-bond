@@ -98,6 +98,20 @@ export interface UserProfile {
   requestedMunicipalityName?: string;
   requestedRegionName?: string;
   barangayRegion?: string;
+  acknowledgedPromotion?: boolean;
+  skHistory?: SKTermRecord[];
+}
+
+export interface SKTermRecord {
+  position: "chairman" | "kagawad" | "secretary" | "treasurer" | "none";
+  termStart: string;
+  termEnd: string;
+  assignedAt: string;
+  revokedAt?: string;
+  barangayId: string;
+  barangayName?: string;
+  assignedByAdminUid?: string;
+  assignedByAdminName?: string;
 }
 
 export interface Barangay {

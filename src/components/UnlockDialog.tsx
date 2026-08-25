@@ -143,10 +143,10 @@ export const UnlockDialog: React.FC<UnlockDialogProps> = ({ profile, user, isOpe
           )}
 
           <div style={{ display: "flex", gap: "0.6rem", marginTop: "0.3rem" }}>
-            <button className="btn btn-outline-danger" style={{ flex: 1 }} onClick={onLogout}>
+            <button className="btn btn-outline-danger tap-scale" style={{ flex: 1 }} onClick={onLogout}>
               <LogOut size={15} /> Logout
             </button>
-            <button className="btn btn-primary" style={{ flex: 1.5 }} onClick={onClose}>
+            <button className="btn btn-primary tap-scale" style={{ flex: 1.5 }} onClick={onClose}>
               Close Checklist
             </button>
           </div>

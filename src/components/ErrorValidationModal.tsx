@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { AlertCircle, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
 
 interface ErrorValidationModalProps {
@@ -129,7 +130,7 @@ export const ErrorValidationModal: React.FC<ErrorValidationModalProps> = ({
   const { title, message, detail } = getFriendlyErrorMessage(error);
   const rawTechnical = typeof error === "string" ? error : JSON.stringify(error, null, 2);
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "460px" }}>
         <div className="bottom-sheet-handle" />
@@ -217,7 +218,8 @@ export const ErrorValidationModal: React.FC<ErrorValidationModalProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

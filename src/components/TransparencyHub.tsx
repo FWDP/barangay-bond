@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import type { Project, EventLog } from "../types";
-import { Search, Landmark } from "lucide-react";
+import { Search, Landmark, ExternalLink } from "lucide-react";
 import { formatXlmWithPhp, formatXlmToPhp } from "../utils/currency";
+import { STELLAR_CONFIG } from "../configuration/config";
 
 interface TransparencyHubProps {
   projects: Project[];
   eventLogs?: EventLog[];
+  userWalletAddress?: string;
 }
 
 export const TransparencyHub: React.FC<TransparencyHubProps> = ({
@@ -14,14 +16,19 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const totalReleased = projects.reduce((sum, p) => {
+  // Scoped to active contract instance
+  const contractProjects = projects.filter(
+    (p) => !p.contractId || p.contractId === STELLAR_CONFIG.contractId
+  );
+
+  const totalReleased = contractProjects.reduce((sum, p) => {
     const b = parseFloat(p.budget);
     if (p.status === 1) return sum + b;
     const mobPct = p.mobilizationPct ?? 50;
     return sum + (b * mobPct) / 100;
   }, 0);
 
-  const totalLocked = projects.reduce((sum, p) => {
+  const totalLocked = contractProjects.reduce((sum, p) => {
     const b = parseFloat(p.budget);
     if (p.status === 1) return sum;
     if (p.status === 2) return sum;
@@ -29,7 +36,7 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
     return sum + (b * (100 - mobPct)) / 100;
   }, 0);
 
-  const completedCount = projects.filter((p) => p.status === 1).length;
+  const completedCount = contractProjects.filter((p) => p.status === 1).length;
 
   const truncateAddress = (addr: string) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -48,7 +55,7 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
     return <span className="badge badge-info">Phase {proj?.currentPhase || 1} Active</span>;
   };
 
-  const filteredProjects = projects.filter((p) => {
+  const filteredProjects = contractProjects.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.id.toString().includes(searchQuery) ||
@@ -61,53 +68,60 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
   });
 
   return (
-    <div className="bank-section">
-      {/* 1. TOP TREASURY METRICS */}
-      <div className="bank-stats-grid">
-        <div className="bank-stat">
-          <span className="bank-stat-label">Active Escrows Locked</span>
-          <span className="bank-stat-value" style={{ color: "var(--role-accent)" }}>
+    <div className="bank-section page-enter" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {/* 1. SECTION HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+        <div>
+          <h2 style={{ fontSize: "1.3rem", fontWeight: 900, color: "var(--text-primary)", margin: 0 }}>
+            Public Project Funds & Ledger
+          </h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: "0.82rem", margin: "0.2rem 0 0 0" }}>
+            Real-time records of community project funds held and released on Stellar
+          </p>
+        </div>
+        <span className="badge badge-info">
+          Stellar Network Verified
+        </span>
+      </div>
+
+      {/* 2. TOP TREASURY METRICS */}
+      <div className="stats-grid-3">
+        <div className="stat-tile">
+          <span className="stat-tile-label">Funds Reserved</span>
+          <span className="stat-tile-value" style={{ color: "var(--role-accent)" }}>
             {totalLocked.toFixed(1)} XLM
           </span>
-          <span className="bank-stat-desc">≈ {formatXlmToPhp(totalLocked)} secured on-chain</span>
+          <span className="stat-tile-sub">≈ {formatXlmToPhp(totalLocked)}</span>
         </div>
 
-        <div className="bank-stat">
-          <span className="bank-stat-label">Released Funds</span>
-          <span className="bank-stat-value">
+        <div className="stat-tile">
+          <span className="stat-tile-label">Funds Released</span>
+          <span className="stat-tile-value">
             {totalReleased.toFixed(1)} XLM
           </span>
-          <span className="bank-stat-desc">≈ {formatXlmToPhp(totalReleased)} disbursed to SK</span>
+          <span className="stat-tile-sub">≈ {formatXlmToPhp(totalReleased)}</span>
         </div>
 
-        <div className="bank-stat">
-          <span className="bank-stat-label">Completed Escrows</span>
-          <span className="bank-stat-value">
-            {completedCount} / {projects.length}
+        <div className="stat-tile">
+          <span className="stat-tile-label">Completed Projects</span>
+          <span className="stat-tile-value">
+            {completedCount} / {contractProjects.length}
           </span>
-          <span className="bank-stat-desc">Milestones audited & finalized</span>
-        </div>
-
-        <div className="bank-stat">
-          <span className="bank-stat-label">Quorum Consensus</span>
-          <span className="bank-stat-value" style={{ color: "#f59e0b" }}>
-            60%
-          </span>
-          <span className="bank-stat-desc">Mandatory citizen threshold</span>
+          <span className="stat-tile-sub">Approved & finished</span>
         </div>
       </div>
 
-      {/* 2. SEARCH & FILTER CONTROLS */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
-        <div style={{ position: "relative", flex: 1, minWidth: "220px" }}>
-          <Search size={16} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+      {/* 3. SEARCH & STATUS FILTER CONTROLS */}
+      <div className="section-card" style={{ padding: "1rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+        <div style={{ position: "relative", flex: "1 1 240px", maxWidth: "420px" }}>
+          <Search size={15} style={{ position: "absolute", left: "0.85rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
           <input
             type="text"
             className="form-control"
-            placeholder="Search projects by title, ID, or creator address..."
+            placeholder="Search projects by title, ID, or creator..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ paddingLeft: "2.4rem" }}
+            style={{ paddingLeft: "2.4rem", height: "36px", fontSize: "0.82rem" }}
           />
         </div>
 
@@ -115,79 +129,113 @@ export const TransparencyHub: React.FC<TransparencyHubProps> = ({
           <button
             className={`fintech-tab-btn ${statusFilter === "all" ? "active" : ""}`}
             onClick={() => setStatusFilter("all")}
-            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem" }}
+            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem", fontWeight: 700 }}
           >
-            All Projects ({projects.length})
+            All ({contractProjects.length})
           </button>
           <button
             className={`fintech-tab-btn ${statusFilter === "active" ? "active" : ""}`}
             onClick={() => setStatusFilter("active")}
-            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem" }}
+            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem", fontWeight: 700 }}
           >
-            Active ({projects.filter((p) => p.status === 0).length})
+            Active ({contractProjects.filter((p) => p.status === 0).length})
           </button>
           <button
             className={`fintech-tab-btn ${statusFilter === "completed" ? "active" : ""}`}
             onClick={() => setStatusFilter("completed")}
-            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem" }}
+            style={{ padding: "0.4rem 0.85rem", fontSize: "0.78rem", fontWeight: 700 }}
           >
             Completed ({completedCount})
           </button>
         </div>
       </div>
 
-      {/* 3. TREASURY STATEMENT & PROJECT ESCROW LIST */}
-      <div className="bank-card">
-        <div className="bank-card-header">
-          <div>
-            <h3 className="bank-card-title">Project Escrows Ledger</h3>
-            <div className="bank-card-subtitle">On-Chain Smart Contract Allocations</div>
-          </div>
-          <span className="badge badge-info">{filteredProjects.length} Records</span>
+      {/* 4. PROJECT ESCROW LIST */}
+      <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "1rem 1.25rem", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--bg-elevated)" }}>
+          <h3 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--text-primary)" }}>
+            Project Allocations
+          </h3>
+          <span className="badge badge-outline">{filteredProjects.length} Records</span>
         </div>
 
-        <div className="bank-card-body">
+        <div style={{ padding: "0.75rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {filteredProjects.length === 0 ? (
-            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: "1rem 0", textAlign: "center" }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.85rem", margin: "2rem 0", textAlign: "center" }}>
               No project escrows matching your search query.
             </p>
           ) : (
-            <div className="bank-ledger-list">
-              {filteredProjects.map((p) => {
-                const currency = formatXlmWithPhp(p.budget);
-                return (
-                  <div key={p.id} className="bank-ledger-row">
-                    <div className="bank-ledger-left">
-                      <div className="bank-ledger-icon">
-                        <Landmark size={20} />
-                      </div>
-                      <div className="bank-ledger-details">
-                        <div className="bank-ledger-title">
-                          #{p.id}: {p.name}
-                        </div>
-                        <div className="bank-ledger-sub">
-                          <span>Creator:</span>
-                          <code>{truncateAddress(p.creator)}</code>
-                          <span>•</span>
-                          <span>{p.description.slice(0, 48)}{p.description.length > 48 ? "..." : ""}</span>
-                        </div>
-                      </div>
+            filteredProjects.map((p) => {
+              const currency = formatXlmWithPhp(p.budget);
+              return (
+                <div
+                  key={p.id}
+                  className="stat-tile"
+                  style={{
+                    padding: "0.85rem 1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    flexWrap: "wrap",
+                    borderRadius: "14px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0 }}>
+                    <div
+                      style={{
+                        width: "36px",
+                        height: "36px",
+                        borderRadius: "10px",
+                        background: "var(--role-accent-soft)",
+                        color: "var(--role-accent)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Landmark size={18} />
                     </div>
 
-                    <div className="bank-ledger-right">
-                      <div className="bank-ledger-amount credit">
-                        {currency.phpStr}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "var(--text-primary)" }}>
+                        #{p.id}: {p.name}
                       </div>
-                      <div className="bank-ledger-sub-amount">
-                        <span>{currency.xlmStr}</span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.15rem", fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                        <span>Creator:</span>
+                        <a
+                          href={`https://stellar.expert/explorer/testnet/account/${p.creator}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "var(--accent-blue)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.15rem", fontWeight: 700 }}
+                          title="View on Stellar Expert"
+                        >
+                          <code>{truncateAddress(p.creator)}</code>
+                          <ExternalLink size={9} />
+                        </a>
                         <span>•</span>
-                        {getStatusBadge(p.status, p)}
+                        <span>{p.description.slice(0, 48)}{p.description.length > 48 ? "..." : ""}</span>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0, marginLeft: "auto" }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-primary)" }}>
+                        {currency.phpStr}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
+                        {currency.xlmStr}
+                      </div>
+                    </div>
+
+                    {getStatusBadge(p.status, p)}
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>

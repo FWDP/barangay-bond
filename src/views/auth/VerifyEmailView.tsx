@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { Mail, LogOut, CheckCircle2 } from "lucide-react";
+import { LogOut, CheckCircle2 } from "lucide-react";
 
 interface StatusScreenProps {
   profile: any;
@@ -64,21 +64,12 @@ export const VerifyEmailView: React.FC<StatusScreenProps> = ({ profile, onLogout
           boxShadow: "var(--shadow-floating)",
         }}
       >
-        <div
-          style={{
-            width: "68px",
-            height: "68px",
-            borderRadius: "9999px",
-            background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 1.25rem auto",
-            color: "#ffffff",
-            boxShadow: "0 12px 24px -4px rgba(245, 158, 11, 0.35)",
-          }}
-        >
-          <Mail size={32} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
+          <img
+            src="/logo.png"
+            alt="Barangay Bond"
+            style={{ width: "56px", height: "56px", borderRadius: "14px", objectFit: "contain" }}
+          />
         </div>
 
         <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--text-primary)", marginBottom: "0.4rem" }}>

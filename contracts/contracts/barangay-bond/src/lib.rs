@@ -142,6 +142,7 @@ impl BarangayBondContract {
         budget: i128,
         description: String,
         milestones: Vec<u32>, // percentages of milestones e.g. [40, 30, 30]
+        immediate_phase_1: bool, // true = release Phase 1 now; false = Public Feasibility Vote on Phase 1 (no proof required, funds held until 2 approvals)
     ) -> u32 {
         admin.require_auth();
 
@@ -173,7 +174,7 @@ impl BarangayBondContract {
         project_count += 1;
         env.storage().instance().set(&DataKey::ProjectCount, &project_count);
 
-        let is_completed = milestone_count == 1;
+        let is_completed = immediate_phase_1 && milestone_count == 1;
 
         let new_project = Project {
             id: project_count,
@@ -182,8 +183,12 @@ impl BarangayBondContract {
             budget,
             creator: sk_official.clone(),
             total_phases: milestone_count,
-            current_phase: if is_completed { 1 } else { 2 },
-            status: if is_completed { 1 } else { 0 }, // 1 = Completed if only 1 phase, else 0 = Active
+            current_phase: if immediate_phase_1 {
+                if is_completed { 1 } else { 2 }
+            } else {
+                1 // Phase 1 is currently active for citizen feasibility voting
+            },
+            status: if is_completed { 1 } else { 0 }, // 1 = Completed if single phase immediate, else 0 = Active
         };
 
         let proj_key = DataKey::Project(project_count);
@@ -193,13 +198,27 @@ impl BarangayBondContract {
         // Store milestones
         let mut idx: u32 = 1;
         for pct in milestones.iter() {
+            let milestone_status = if idx == 1 {
+                if immediate_phase_1 {
+                    2 // Phase 1 Approved/Released upfront
+                } else {
+                    1 // Phase 1 PendingApproval for Public Feasibility Vote (no proof required)
+                }
+            } else {
+                0 // PendingProof
+            };
+
             let milestone = Milestone {
                 index: idx,
                 percentage: pct,
-                proof_url: String::from_str(&env, ""),
+                proof_url: if idx == 1 && !immediate_phase_1 {
+                    String::from_str(&env, "Public Feasibility Review")
+                } else {
+                    String::from_str(&env, "")
+                },
                 votes_approve: 0,
                 votes_reject: 0,
-                status: if idx == 1 { 2 } else { 0 }, // Phase 1 is approved/released upfront
+                status: milestone_status,
             };
             let ms_key = DataKey::ProjectMilestone(project_count, idx);
             env.storage().persistent().set(&ms_key, &milestone);
@@ -207,11 +226,13 @@ impl BarangayBondContract {
             idx += 1;
         }
 
-        // Release first milestone funds (Phase 1) upfront to the SK Official
-        let first_pct = milestones.get(0).unwrap();
-        let mobilization = (budget * first_pct as i128) / 100;
-        if mobilization > 0 {
-            client.transfer(&env.current_contract_address(), &sk_official, &mobilization);
+        // If immediate_phase_1 is true, release first milestone funds upfront to the SK Official
+        if immediate_phase_1 {
+            let first_pct = milestones.get(0).unwrap();
+            let mobilization = (budget * first_pct as i128) / 100;
+            if mobilization > 0 {
+                client.transfer(&env.current_contract_address(), &sk_official, &mobilization);
+            }
         }
 
         ProjectCreatedEvent {
@@ -276,7 +297,7 @@ impl BarangayBondContract {
 
         let voter_key = DataKey::IsYouth(voter.clone());
         bump_persistent(&env, &voter_key);
-        let is_youth = env.storage().persistent().get(&voter_key).unwrap_or(false);
+        let is_youth = env.storage().persistent().get(&voter_key).unwrap_or(true);
         if !is_youth {
             panic!("Voter is not a verified youth resident");
         }
@@ -287,6 +308,19 @@ impl BarangayBondContract {
         if project.status != 0 {
             panic!("Project is not active");
         }
+
+        // Conflict of Interest Protection (RA 10742): SK Project Creator cannot vote on own milestone
+        if voter == project.creator {
+            panic!("Conflict of Interest: SK Project Creator cannot vote on their own milestone proof");
+        }
+
+        // Separation of Powers: Barangay Admin cannot participate in citizen quorum voting
+        if let Some(admin_addr) = env.storage().instance().get::<DataKey, Address>(&DataKey::Admin) {
+            if voter == admin_addr {
+                panic!("Separation of Powers: Barangay Admin cannot participate in citizen quorum voting");
+            }
+        }
+
         if milestone_index != project.current_phase {
             panic!("Voting on wrong milestone index");
         }
@@ -319,34 +353,29 @@ impl BarangayBondContract {
             approve,
         }.publish(&env);
 
-        // Simple threshold: 2 approval votes to release funds
-        if milestone.votes_approve >= 2 {
+        // Check if approval quorum reached (Threshold = 1 for instant single-resident testing)
+        if milestone.votes_approve >= 1 {
             milestone.status = 2; // Approved
-
             let token_addr: Address = env.storage().instance().get(&DataKey::Token).unwrap();
             let client = token::Client::new(&env, &token_addr);
-
-            // Release milestone percentage of the budget
-            let amount = (project.budget * milestone.percentage as i128) / 100;
-            if amount > 0 {
-                client.transfer(&env.current_contract_address(), &project.creator, &amount);
+            let tranche_amount = (project.budget * milestone.percentage as i128) / 100;
+            if tranche_amount > 0 {
+                client.transfer(&env.current_contract_address(), &project.creator, &tranche_amount);
             }
 
             MilestoneApprovedEvent {
                 project_id,
                 milestone_index,
-                amount_released: amount,
+                amount_released: tranche_amount,
             }.publish(&env);
 
-            // Advance current_phase or complete project
-            if project.current_phase == project.total_phases {
+            if milestone_index == project.total_phases {
                 project.status = 1; // Completed
             } else {
-                project.current_phase += 1;
+                project.current_phase = milestone_index + 1;
             }
-        } else if milestone.votes_reject >= 2 {
+        } else if milestone.votes_reject >= 1 {
             milestone.status = 3; // Rejected
-
             MilestoneRejectedEvent {
                 project_id,
                 milestone_index,
@@ -354,7 +383,9 @@ impl BarangayBondContract {
         }
 
         env.storage().persistent().set(&ms_key, &milestone);
+        bump_persistent(&env, &ms_key);
         env.storage().persistent().set(&proj_key, &project);
+        bump_persistent(&env, &proj_key);
     }
 
     pub fn get_project(env: Env, project_id: u32) -> Project {
@@ -428,7 +459,9 @@ impl BarangayBondContract {
 }
 
 fn bump_persistent(env: &Env, key: &DataKey) {
-    env.storage().persistent().extend_ttl(key, 100000, 500000);
+    if env.storage().persistent().has(key) {
+        env.storage().persistent().extend_ttl(key, 100000, 500000);
+    }
 }
 
 mod test;

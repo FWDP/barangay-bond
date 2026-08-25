@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getProjectWithMilestones, getProjectCount } from "../rpc/rpc";
+import { STELLAR_CONFIG } from "../configuration/config";
 import type { Project, EventLog } from "../types";
 import { eventsListener } from "../events/events";
 import { useWallet } from "../contexts/WalletContext";
@@ -55,7 +56,7 @@ export function useContractState() {
       for (let i = 1; i <= count; i++) {
         try {
           const proj = await getProjectWithMilestones(i);
-          loadedProjects.push(proj);
+          loadedProjects.push({ ...proj, contractId: STELLAR_CONFIG.contractId });
         } catch (err) {
           console.error(`Failed to load project #${i}:`, err);
         }

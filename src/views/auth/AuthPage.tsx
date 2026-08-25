@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { ErrorValidationModal } from "../../components/ErrorValidationModal";
-import { Lock, ShieldCheck, Sun, Moon } from "lucide-react";
+import { Lock, ShieldCheck, Sun, Moon, Mail, AlertCircle } from "lucide-react";
 import { getResubmissionFieldLabel } from "../../utils/reviewDecision";
 import type { ResubmissionFieldKey, ResubmissionPresetKey } from "../../utils/reviewDecision";
 
@@ -294,6 +294,13 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
   }, [user, profile, authEntryContext, approvedBarangays]);
 
   useEffect(() => {
+    if (user && profile && (profile.status === "active" || profile.verificationStatus === "approved") && !authEntryContext) {
+      localStorage.removeItem("bgy_guest_mode");
+      setViewState("dashboard");
+    }
+  }, [user, profile, authEntryContext, setViewState]);
+
+  useEffect(() => {
     if (!user && !isLogin) {
       setSignUpStep(1);
     }
@@ -505,6 +512,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
       setLoading(true);
       try {
         await signIn(email, password);
+        localStorage.removeItem("bgy_guest_mode");
+        setViewState("dashboard");
       } catch (err: any) {
         console.error(err);
         const msg = err?.message || "Login failed. Please check credentials.";
@@ -762,11 +771,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <div className="wizard-progress-bar">
-          <span className={`step-dot ${signUpStep === 1 ? "active" : ""}`}>1. Account Setup</span>
-          <span className={`step-dot ${signUpStep === 3 ? "active" : ""}`}>2. Role / LGU</span>
-          <span className={`step-dot ${signUpStep === 4 ? "active" : ""}`}>3. Identity Details</span>
-          <span className={`step-dot ${signUpStep === 5 ? "active" : ""}`}>4. Additional Info</span>
-          <span className={`step-dot ${signUpStep === 6 ? "active" : ""}`}>5. Verification Docs</span>
+          <span className={`step-dot ${signUpStep === 1 ? "active" : signUpStep > 1 ? "completed" : ""}`}>
+            1. Account
+          </span>
+          <span className={`step-dot ${signUpStep === 3 ? "active" : signUpStep > 3 ? "completed" : ""}`}>
+            2. Role / LGU
+          </span>
+          <span className={`step-dot ${signUpStep === 4 ? "active" : signUpStep > 4 ? "completed" : ""}`}>
+            3. Identity
+          </span>
+          <span className={`step-dot ${signUpStep === 5 ? "active" : signUpStep > 5 ? "completed" : ""}`}>
+            4. Details
+          </span>
+          <span className={`step-dot ${signUpStep === 6 ? "active" : ""}`}>
+            5. Docs
+          </span>
         </div>
 
         {signUpStep === 1 && (
@@ -927,8 +946,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
         >
           <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                <span style={{ fontSize: "1.5rem" }}>🇵🇭</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.65rem" }}>
+                <img
+                  src="/logo.png"
+                  alt="Barangay Bond Logo"
+                  style={{ width: "36px", height: "36px", borderRadius: "10px", objectFit: "contain" }}
+                />
                 <span style={{ fontWeight: 900, fontSize: "1.2rem", letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
                   Barangay Bond
                 </span>
@@ -1088,10 +1111,21 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
                 </div>
               )}
 
+              {!import.meta.env.VITE_FIREBASE_API_KEY && (
+                <div style={{ background: "var(--accent-yellow-soft)", border: "1px solid rgba(245, 158, 11, 0.4)", borderRadius: "14px", padding: "0.85rem 1rem", color: "#f59e0b", fontSize: "0.8rem", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                  <AlertCircle size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                  <div>
+                    <strong>Firebase API Key Required:</strong> Paste your Firebase Web API Key in your <code>.env</code> file (<code>VITE_FIREBASE_API_KEY=AIzaSy...</code>) to enable account login & signup.
+                  </div>
+                </div>
+              )}
+
               {isLogin ? (
                 <>
                   <div className="form-group">
-                    <label>Email Address</label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <Mail size={14} style={{ color: "var(--role-accent)" }} /> Email Address
+                    </label>
                     <input
                       type="email"
                       inputMode="email"
@@ -1104,7 +1138,9 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
                   </div>
 
                   <div className="form-group">
-                    <label>Password</label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      <Lock size={14} style={{ color: "var(--role-accent)" }} /> Password
+                    </label>
                     <input
                       type="password"
                       className="form-control"
@@ -1115,7 +1151,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary btn-lg w-100" style={{ width: "100%", height: "52px", marginTop: "0.5rem" }} disabled={loading}>
+                  <button type="submit" className="btn btn-primary btn-lg w-100 tap-scale" style={{ width: "100%", height: "52px", marginTop: "0.5rem" }} disabled={loading}>
                     {loading ? "Signing in..." : "Login to Portal"}
                   </button>
                 </>
@@ -1128,7 +1164,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
               <div style={{ textAlign: "center", marginTop: "1.25rem" }}>
                 <button
                   type="button"
-                  className="btn btn-outline w-100"
+                  className="btn btn-outline w-100 tap-scale"
                   onClick={() => { setIsLogin(!isLogin); setSignUpStep(1); setError(null); }}
                 >
                   {isLogin ? "Need a new profile? Register here" : "Already registered? Sign in"}
@@ -1139,7 +1175,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
             <div style={{ textAlign: "center", marginTop: "1rem" }}>
               <button
                 type="button"
-                className="btn btn-sm btn-outline"
+                className="btn btn-sm btn-outline tap-scale"
                 style={{ border: "none", color: "var(--text-muted)" }}
                 onClick={() => setViewState("landing")}
               >
@@ -1153,4 +1189,5 @@ export const AuthPage: React.FC<AuthPageProps> = ({ setViewState, authEntryConte
   };
 
 export default AuthPage;
+
 

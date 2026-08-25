@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useContractState } from "../hooks/useContractState";
 import { useWallet } from "../contexts/WalletContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -10,11 +11,14 @@ import { AdminPanel } from "../components/AdminPanel";
 import { SKWorkspace } from "../components/SKWorkspace";
 import { YouthDashboard } from "../components/YouthDashboard";
 import { TransparencyHub } from "../components/TransparencyHub";
-import { NotificationsPanel } from "../components/NotificationsPanel";
+import { ActivityView } from "../components/ActivityView";
 import { ProfileSettingsPanel } from "../components/ProfileSettingsPanel";
 import { TransactionLifecycleModal } from "../components/TransactionLifecycleModal";
-import { WalletSelector } from "../components/WalletSelector";
+
+import { QrModal } from "../components/QrModal";
+import { SKCelebrationModal } from "../components/SKCelebrationModal";
 import { LoadingSpinner } from "../components/LoadingSpinner";
+import { WalletTransactionHistoryModal } from "../components/WalletTransactionHistoryModal";
 import { formatXlmToPhp } from "../utils/currency";
 
 import {
@@ -29,22 +33,20 @@ import {
   Check,
   ShieldCheck,
   Vote,
-  Building,
   FilePlus,
-  Activity,
   CreditCard,
-  CheckCircle2,
-  FileText,
-  Landmark,
-  Shield,
   Sun,
-  Moon
+  Moon,
+  QrCode,
+  ArrowUpRight,
+  Receipt,
+  ArrowRight
 } from "lucide-react";
 import type { TransactionStatus } from "../types";
 
 type ViewState = "landing" | "auth" | "dashboard";
 type RoleType = "system_admin" | "barangay_admin" | "sk_official" | "resident" | "viewer";
-type MenuKey = "dashboard" | "projects" | "voting" | "notifications" | "profile" | "admin" | "ledger";
+type MenuKey = "dashboard" | "projects" | "ledger" | "activity" | "profile" | "studio" | "admin";
 
 interface MainLayoutProps {
   setViewState: (state: ViewState) => void;
@@ -55,7 +57,7 @@ interface MainLayoutProps {
 
 export const MainLayout: React.FC<MainLayoutProps> = ({
   setViewState,
-  isGuest,
+  isGuest: propIsGuest,
   setIsGuest,
   onRequestResubmission
 }) => {
@@ -64,9 +66,51 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const { profile, user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
-  // Navigation State
+  // A logged in user is never in guest mode
+  const isGuest = propIsGuest && !user;
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Navigation State & URL Synchronization
   const [activeRole, setActiveRole] = useState<RoleType>("viewer");
-  const [activeMenu, setActiveMenu] = useState<MenuKey>("dashboard");
+
+  const getMenuFromPath = (pathname: string): MenuKey => {
+    if (pathname.includes("/projects") || pathname.includes("/voting") || pathname.includes("/ledger")) return "projects";
+    if (pathname.includes("/activity") || pathname.includes("/notifications")) return "activity";
+    if (pathname.includes("/profile")) return "profile";
+    if (pathname.includes("/studio")) return "studio";
+    if (pathname.includes("/admin")) return "admin";
+    return "dashboard";
+  };
+
+  const activeMenu = getMenuFromPath(location.pathname);
+
+  const navigateToMenu = (menu: MenuKey) => {
+    switch (menu) {
+      case "dashboard":
+        navigate("/dashboard");
+        break;
+      case "projects":
+      case "ledger":
+        navigate("/projects");
+        break;
+      case "activity":
+        navigate("/activity");
+        break;
+      case "profile":
+        navigate("/profile");
+        break;
+      case "studio":
+        navigate("/studio");
+        break;
+      case "admin":
+        navigate("/admin");
+        break;
+    }
+  };
+
+  const setActiveMenu = (menu: MenuKey) => navigateToMenu(menu);
 
   // Balance Visibility Toggle (Digital Bank Privacy Feature)
   const [hideBalance, setHideBalance] = useState<boolean>(() => {
@@ -93,11 +137,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   // Unlock Dialog
   const [unlockDialogOpen, setUnlockDialogOpen] = useState(false);
 
+  // QR Pay & Receive Modal
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrModalTab, setQrModalTab] = useState<"receive" | "pay">("receive");
+
+  // Wallet Transaction History & PDF Receipts Modal
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  const openQrModal = (tab: "receive" | "pay") => {
+    setQrModalTab(tab);
+    setIsQrModalOpen(true);
+  };
+
   // Sync simulated role with auth profile role by default
   useEffect(() => {
     if (isGuest) {
       setActiveRole("viewer");
-      setActiveMenu("dashboard");
       return;
     }
 
@@ -154,8 +209,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   };
 
   const handleLogout = async () => {
-    await signOut();
+    localStorage.removeItem("bgy_guest_mode");
     setIsGuest(false);
+    await signOut();
     setViewState("landing");
   };
 
@@ -214,6 +270,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
   const numBalance = parseFloat(xlmBalance) || 0;
   const phpBalanceText = formatXlmToPhp(numBalance);
   const activeWalletAddress = profile?.walletAddress || address || "";
+  const hasWallet = !!activeWalletAddress;
   const activeProjectsCount = projects.filter((p) => p.status < 2).length;
 
   // Escrows calculation for desktop vault widget
@@ -240,163 +297,146 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         <div className="bank-sidebar-top">
           {/* Brand Header */}
           <div className="bank-sidebar-brand" onClick={() => setActiveMenu("dashboard")}>
-            <div className="bank-brand-crest">
-              ðŸ‡µðŸ‡­
-            </div>
+            <img
+              src="/logo.png"
+              alt="Barangay Bond Logo"
+              style={{ width: "34px", height: "34px", borderRadius: "10px", objectFit: "contain" }}
+            />
             <div>
               <div className="bank-brand-title">Barangay Bond</div>
               <div className="bank-brand-network">
                 <span className="pulse-beacon" />
-                <span>Stellar Soroban Vault</span>
+                <span>Live on Stellar</span>
               </div>
             </div>
           </div>
 
           {/* User Profile Capsule */}
           <div className="bank-sidebar-user-capsule">
-            <div className="bank-sidebar-avatar">
-              {profile?.name ? profile.name.charAt(0).toUpperCase() : "ðŸ‡µðŸ‡­"}
+            <div className="bank-sidebar-user-top">
+              <div className="bank-sidebar-avatar">
+                {profile?.name ? profile.name.charAt(0).toUpperCase() : "🇵🇭"}
+              </div>
+              <div className="bank-sidebar-user-meta">
+                <span className="bank-sidebar-user-name" title={profile?.name || "Guest Auditor"}>
+                  {profile?.name || "Guest Auditor"}
+                </span>
+                <span className="bank-sidebar-user-loc" title={profile?.barangayName ? `Brgy. ${profile.barangayName}` : "Stellar Testnet"}>
+                  {profile?.barangayName ? `Brgy. ${profile.barangayName}` : "Stellar Testnet"}
+                </span>
+              </div>
             </div>
-            <div className="bank-sidebar-user-meta">
-              <span className="bank-sidebar-user-name">{profile?.name || "Guest Auditor"}</span>
-              <span className="bank-sidebar-user-loc">
-                {profile?.barangayName ? `Brgy. ${profile.barangayName}` : "Stellar Testnet"}
+            <div className="bank-sidebar-user-bottom">
+              <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>Civic Tier</span>
+              <span className="badge badge-role" style={{ fontSize: "0.62rem", padding: "0.15rem 0.45rem" }}>
+                {roleMeta.tag}
               </span>
             </div>
-            <span className="badge badge-role" style={{ fontSize: "0.62rem", padding: "0.1rem 0.35rem" }}>
-              {roleMeta.tag}
-            </span>
           </div>
 
-          {/* Navigation Links */}
+            {/* Navigation Links (5 Core Tabs + Role Workspace) */}
           <nav className="bank-sidebar-nav">
-            <div className="bank-nav-section-label">Core Banking</div>
-
-            <button
-              className={`bank-nav-item ${activeMenu === "dashboard" ? "active" : ""}`}
-              onClick={() => setActiveMenu("dashboard")}
-            >
-              <div className="bank-nav-left">
-                <Home size={18} />
-                <span>Dashboard</span>
-              </div>
-            </button>
-
-            <button
-              className={`bank-nav-item ${activeMenu === "voting" ? "active" : ""}`}
-              onClick={() => setActiveMenu("voting")}
-            >
-              <div className="bank-nav-left">
-                <Vote size={18} />
-                <span>Civic Voting</span>
-              </div>
-              {activeProjectsCount > 0 && (
-                <span className="bank-nav-badge">{activeProjectsCount}</span>
-              )}
-            </button>
-
-            <button
-              className={`bank-nav-item ${activeMenu === "ledger" ? "active" : ""}`}
-              onClick={() => setActiveMenu("ledger")}
-            >
-              <div className="bank-nav-left">
-                <Landmark size={18} />
-                <span>Treasury & Ledger</span>
-              </div>
-            </button>
-
-            {/* Governance Workspaces */}
-            {activeRole === "sk_official" && (
+            {isGuest ? (
               <>
-                <div className="bank-nav-section-label">SK Studio</div>
+                <button
+                  className={`bank-nav-item ${activeMenu === "projects" || activeMenu === "dashboard" ? "active" : ""}`}
+                  onClick={() => navigateToMenu("projects")}
+                >
+                  <div className="bank-nav-left"><Vote size={17} /><span>Explore Projects</span></div>
+                  {activeProjectsCount > 0 && (
+                    <span className="bank-nav-badge">{activeProjectsCount}</span>
+                  )}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className={`bank-nav-item ${activeMenu === "dashboard" ? "active" : ""}`}
+                  onClick={() => navigateToMenu("dashboard")}
+                >
+                  <div className="bank-nav-left"><Home size={17} /><span>Home</span></div>
+                </button>
+
                 <button
                   className={`bank-nav-item ${activeMenu === "projects" ? "active" : ""}`}
-                  onClick={() => setActiveMenu("projects")}
+                  onClick={() => navigateToMenu("projects")}
                 >
-                  <div className="bank-nav-left">
-                    <FilePlus size={18} />
-                    <span>Project Studio</span>
-                  </div>
+                  <div className="bank-nav-left"><Vote size={17} /><span>Projects</span></div>
+                  {activeProjectsCount > 0 && (
+                    <span className="bank-nav-badge">{activeProjectsCount}</span>
+                  )}
                 </button>
-              </>
-            )}
 
-            {(activeRole === "barangay_admin" || activeRole === "system_admin") && (
-              <>
-                <div className="bank-nav-section-label">Administration</div>
                 <button
-                  className={`bank-nav-item ${activeMenu === "admin" ? "active" : ""}`}
-                  onClick={() => setActiveMenu("admin")}
+                  className={`bank-nav-item ${activeMenu === "activity" ? "active" : ""}`}
+                  onClick={() => navigateToMenu("activity")}
                 >
-                  <div className="bank-nav-left">
-                    <ShieldCheck size={18} />
-                    <span>Admin Desk</span>
-                  </div>
+                  <div className="bank-nav-left"><Receipt size={17} /><span>Activity</span></div>
                 </button>
+
+                <button
+                  className={`bank-nav-item ${activeMenu === "profile" ? "active" : ""}`}
+                  onClick={() => navigateToMenu("profile")}
+                >
+                  <div className="bank-nav-left"><User size={17} /><span>My Account</span></div>
+                </button>
+
+                {/* Role Workspace Link (If SK or Admin) */}
+                {activeRole === "sk_official" && (
+                  <>
+                    <div style={{ height: "1px", background: "var(--border-subtle)", margin: "0.4rem 0.5rem" }} />
+                    <button
+                      className={`bank-nav-item ${activeMenu === "studio" ? "active" : ""}`}
+                      onClick={() => navigateToMenu("studio")}
+                      style={{ color: "var(--role-accent)" }}
+                    >
+                      <div className="bank-nav-left"><FilePlus size={17} /><span>SK Studio</span></div>
+                    </button>
+                  </>
+                )}
+
+                {(activeRole === "barangay_admin" || activeRole === "system_admin") && (
+                  <>
+                    <div style={{ height: "1px", background: "var(--border-subtle)", margin: "0.4rem 0.5rem" }} />
+                    <button
+                      className={`bank-nav-item ${activeMenu === "admin" ? "active" : ""}`}
+                      onClick={() => navigateToMenu("admin")}
+                      style={{ color: "var(--role-accent)" }}
+                    >
+                      <div className="bank-nav-left"><ShieldCheck size={17} /><span>Admin Desk</span></div>
+                    </button>
+                  </>
+                )}
               </>
             )}
-
-            <div className="bank-nav-section-label">Account & Security</div>
-
-            <button
-              className="bank-nav-item"
-              onClick={() => setUnlockDialogOpen(true)}
-            >
-              <div className="bank-nav-left">
-                <CheckCircle2 size={18} />
-                <span>Voter Tier Status</span>
-              </div>
-            </button>
-
-            <button
-              className={`bank-nav-item ${activeMenu === "notifications" ? "active" : ""}`}
-              onClick={() => setActiveMenu("notifications")}
-            >
-              <div className="bank-nav-left">
-                <Bell size={18} />
-                <span>Alerts</span>
-              </div>
-            </button>
-
-            <button
-              className={`bank-nav-item ${activeMenu === "profile" ? "active" : ""}`}
-              onClick={() => setActiveMenu("profile")}
-            >
-              <div className="bank-nav-left">
-                <User size={18} />
-                <span>Account Settings</span>
-              </div>
-            </button>
           </nav>
         </div>
 
         {/* Sidebar Footer */}
         <div className="bank-sidebar-footer">
-          {activeWalletAddress && (
+          {activeWalletAddress && !isGuest && (
             <div
               className="bank-sidebar-wallet-chip"
               onClick={() => handleCopyAddress(activeWalletAddress)}
-              title="Copy Linked Wallet Address"
+              title="Copy Wallet Address"
             >
               <div>
-                <div style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>LINKED WALLET</div>
+                <div style={{ fontSize: "0.67rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Linked Wallet</div>
                 <code>{activeWalletAddress.slice(0, 6)}...{activeWalletAddress.slice(-4)}</code>
               </div>
               {copiedAddress ? <Check size={14} style={{ color: "var(--accent-green)" }} /> : <Copy size={14} />}
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
-            <button
-              className="theme-toggle-btn w-full"
-              onClick={toggleTheme}
-              title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
-              style={{ width: "100%", height: "38px", display: "flex", gap: "0.5rem", fontSize: "0.8rem", fontWeight: 700 }}
-            >
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-              <span>{theme === "dark" ? "Light Theme" : "Dark Theme"}</span>
-            </button>
-          </div>
+          <button
+            className="theme-toggle-btn w-full"
+            onClick={toggleTheme}
+            title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
+            style={{ width: "100%", height: "38px", display: "flex", gap: "0.5rem", fontSize: "0.8rem", fontWeight: 700 }}
+          >
+            {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+          </button>
 
           {!isGuest ? (
             <button className="btn btn-outline-danger btn-sm w-100" onClick={handleLogout} style={{ height: "40px" }}>
@@ -414,60 +454,66 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           2. MAIN CONTENT VIEWPORT
           ========================================================================= */}
       <main className="bank-main-viewport">
-        {/* TOP APP BAR (BREADCRUMB + CONTROLS) */}
+        {/* CLEAN TOP APP BAR */}
         <header className="desktop-top-bar">
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: "1.1rem", fontWeight: 900, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-                {activeMenu === "dashboard" && (profile?.name ? `Welcome back, ${profile.name.split(" ")[0]}` : "Financial Dashboard")}
-                {activeMenu === "voting" && "Milestone Governance & Civic Voting"}
-                {activeMenu === "projects" && "SK Grant & Proposal Studio"}
-                {activeMenu === "admin" && "Barangay Operations & KYC Desk"}
-                {activeMenu === "ledger" && "Public Treasury & On-Chain Statement"}
-                {activeMenu === "notifications" && "Governance & Audit Alerts"}
-                {activeMenu === "profile" && "Account & Stellar Security"}
-              </div>
-              <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)" }}>
-                {profile?.barangayName ? `Jurisdiction: Barangay ${profile.barangayName}` : "Public Ledger Explorer"}
-              </div>
+          <div className="topbar-left">
+            <div className="topbar-page-title">
+              {isGuest ? "Public Explorer" :
+                activeMenu === "dashboard" ? `Hi, ${profile?.name ? profile.name.split(" ")[0] : "there"} 👋` :
+                activeMenu === "projects" ? "Community Projects" :
+                activeMenu === "ledger" ? "Public Ledger" :
+                activeMenu === "activity" ? "Activity & Receipts" :
+                activeMenu === "profile" ? "My Account" :
+                activeMenu === "studio" ? "SK Studio" :
+                activeMenu === "admin" ? "Admin Desk" : "Barangay Bond"}
+            </div>
+            <div className="topbar-page-sub">
+              {isGuest
+                ? "Viewing as guest — sign in to participate"
+                : profile?.barangayName
+                  ? `Brgy. ${profile.barangayName} · ${roleMeta.tag}`
+                  : roleMeta.tag}
             </div>
           </div>
 
-          {/* Right Controls */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <WalletSelector balance={xlmBalance} />
-
+          {/* Right Controls — max 3 items */}
+          <div className="topbar-right">
             <button
-              className="theme-toggle-btn"
+              type="button"
+              className="topbar-icon-btn"
               onClick={toggleTheme}
               title={`Switch to ${theme === "dark" ? "Light" : "Dark"} Mode`}
             >
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
 
-            <button
-              className={`btn btn-outline btn-sm ${activeMenu === "notifications" ? "active" : ""}`}
-              onClick={() => setActiveMenu("notifications")}
-              style={{ padding: "0.45rem", minHeight: "38px", minWidth: "38px", borderRadius: "12px" }}
-              title="Notifications"
-            >
-              <Bell size={16} />
-            </button>
+            {!isGuest && (
+              <button
+                type="button"
+                className={`topbar-icon-btn ${activeMenu === "activity" ? "active" : ""}`}
+                onClick={() => setActiveMenu("activity")}
+                title="Activity & Notifications"
+                style={activeMenu === "activity" ? { borderColor: "var(--role-accent-border)", color: "var(--role-accent)" } : {}}
+              >
+                <Bell size={17} />
+              </button>
+            )}
 
             {!isGuest ? (
               <button
-                className="btn btn-outline-danger btn-sm"
-                onClick={handleLogout}
-                style={{ padding: "0.45rem 0.75rem", minHeight: "38px", borderRadius: "12px" }}
-                title="Logout"
+                type="button"
+                className="topbar-avatar-btn"
+                onClick={() => setActiveMenu("profile")}
+                title="My Account"
               >
-                <LogOut size={15} />
+                {profile?.name ? profile.name.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) : "BB"}
               </button>
             ) : (
               <button
+                type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => setViewState("auth")}
-                style={{ minHeight: "38px", borderRadius: "12px" }}
+                style={{ height: "36px", padding: "0 1.1rem", borderRadius: "10px", fontWeight: 800, fontSize: "0.82rem" }}
               >
                 Sign In
               </button>
@@ -477,293 +523,205 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
 
         {/* VIEWPORT INNER CONTAINER */}
         <div className="banking-app-container">
-          {/* GUEST MODE BANNER */}
+
+          {/* SINGLE CLEAN GUEST MODE BANNER */}
           {isGuest && (
-            <div className="fintech-banner-card" style={{ marginTop: "1rem" }}>
+            <div className="section-card" style={{ background: "var(--accent-blue-soft)", border: "1px solid rgba(0,125,254,0.25)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", padding: "0.9rem 1.25rem", marginTop: "0.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <div style={{ width: "36px", height: "36px", borderRadius: "12px", background: "var(--accent-blue-soft)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-blue)" }}>
-                  <Info size={18} />
+                <div style={{ width: "34px", height: "34px", borderRadius: "10px", background: "rgba(0,125,254,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-blue)", flexShrink: 0 }}>
+                  <Info size={17} />
                 </div>
                 <div>
-                  <strong style={{ fontSize: "0.88rem", color: "var(--text-primary)" }}>Public Auditor Mode</strong>
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "var(--text-secondary)" }}>
-                    Sign in or register as a resident to unlock milestone voting and escrow governance.
-                  </p>
+                  <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-primary)" }}>You're viewing as a guest</div>
+                  <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)" }}>Sign in to vote on milestone deliverables, propose projects, or link your wallet.</div>
                 </div>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => setViewState("auth")}>
-                Join Now
+              <button className="btn btn-primary btn-sm tap-scale" onClick={() => setViewState("auth")} style={{ flexShrink: 0, fontWeight: 800 }}>
+                Sign In / Register
               </button>
             </div>
           )}
 
           {/* =========================================================================
-              SCREEN: DASHBOARD (HOME)
+              VIEWPORT SWITCHER
               ========================================================================= */}
+
+          {/* 1. DASHBOARD VIEWPORT */}
           {activeMenu === "dashboard" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1.45rem", marginTop: "1.25rem" }}>
-              {/* DESKTOP 2-COLUMN HERO SECTION (MASTER BALANCE + VAULT METRICS) */}
+            <div className="page-enter" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+
+              {/* BALANCE + SUMMARY ROW */}
               <div className="desktop-hero-grid">
-                {/* 1. MAYA / GCASH MASTER BALANCE CARD */}
-                <div className="maya-master-card" style={{ margin: 0 }}>
-                  <div className="maya-card-top">
-                    <div className="maya-balance-label">
-                      <span>Available Governance Balance</span>
-                      <button
-                        onClick={toggleBalancePrivacy}
-                        style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", padding: "0.15rem" }}
-                        title={hideBalance ? "Reveal balance" : "Hide balance"}
-                      >
-                        {hideBalance ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
+                {/* BALANCE CARD */}
+                <div className="civic-master-card" style={{ margin: 0 }}>
+                  <div className="civic-card-top">
+                    <div className="civic-balance-label">
+                      <span>{isGuest ? "Total Community Funds" : "Your Balance"}</span>
+                      {!isGuest && (
+                        <button
+                          onClick={toggleBalancePrivacy}
+                          title={hideBalance ? "Show balance" : "Hide balance"}
+                          style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", display: "flex", alignItems: "center", padding: "0.15rem" }}
+                        >
+                          {hideBalance ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      )}
                     </div>
-                    <div className="maya-card-chip-tag">
-                      <CreditCard size={13} /> {roleMeta.tag}
+                    <div className="civic-card-chip-tag">
+                      <CreditCard size={12} /> {roleMeta.tag}
                     </div>
                   </div>
 
                   <div>
-                    <div className="maya-balance-amount">
-                      {hideBalance ? "₱ ••••••••" : phpBalanceText}
+                    <div className="civic-balance-amount">
+                      {isGuest
+                        ? formatXlmToPhp(totalLockedXlm + totalReleasedXlm)
+                        : hideBalance ? "₱ ••••••••" : phpBalanceText}
                     </div>
-                    <div className="maya-balance-sub">
-                      {hideBalance ? "••••••" : `≈ ${xlmBalance} XLM (Soroban Escrow)`}
+                    <div className="civic-balance-sub">
+                      {isGuest
+                        ? `${(totalLockedXlm + totalReleasedXlm).toLocaleString()} XLM · Across All Barangays`
+                        : hideBalance ? "Balance hidden" : `≈ ${xlmBalance} XLM on Stellar`}
                     </div>
                   </div>
 
-                  {/* Primary Action Ribbon Inside Card */}
-                  <div className="maya-card-action-bar">
-                    {activeRole === "resident" && (
-                      <button className="maya-card-btn primary" onClick={() => setActiveMenu("voting")}>
-                        <Vote size={15} /> Cast Vote ({activeProjectsCount})
-                      </button>
+                  <div className="civic-card-action-bar">
+                    {isGuest ? (
+                      <>
+                        <button type="button" className="civic-card-btn primary tap-scale" onClick={() => setViewState("auth")}>
+                          <User size={14} /> Sign In
+                        </button>
+                        <button type="button" className="civic-card-btn tap-scale" onClick={() => setActiveMenu("projects")}>
+                          <Vote size={14} /> Explore Projects
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {hasWallet && (
+                          <>
+                            <button type="button" className="civic-card-btn primary tap-scale" onClick={() => openQrModal("pay")}>
+                              <ArrowUpRight size={14} /> Send
+                            </button>
+                            <button type="button" className="civic-card-btn tap-scale" onClick={() => openQrModal("receive")}>
+                              <QrCode size={14} /> Receive
+                            </button>
+                          </>
+                        )}
+                        <button className="civic-card-btn tap-scale" onClick={() => navigateToMenu("projects")}>
+                          <Vote size={14} /> Projects ({activeProjectsCount})
+                        </button>
+                      </>
                     )}
-
-                    {activeRole === "sk_official" && (
-                      <button className="maya-card-btn primary" onClick={() => setActiveMenu("projects")}>
-                        <FilePlus size={15} /> Propose Project
-                      </button>
-                    )}
-
-                    {(activeRole === "barangay_admin" || activeRole === "system_admin") && (
-                      <button className="maya-card-btn primary" onClick={() => setActiveMenu("admin")}>
-                        <ShieldCheck size={15} /> Review KYC
-                      </button>
-                    )}
-
-                    {activeWalletAddress && (
+                  </div>
+                  {!isGuest && (
+                    <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.74rem", color: "var(--text-muted)" }}>Recent Transactions & Receipts</span>
                       <button
-                        className="maya-card-btn"
-                        onClick={() => handleCopyAddress(activeWalletAddress)}
-                        title="Copy Linked Wallet Address"
+                        type="button"
+                        onClick={() => navigateToMenu("activity")}
+                        style={{ background: "none", border: "none", color: "var(--role-accent)", fontSize: "0.76rem", fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem" }}
                       >
-                        <code>{activeWalletAddress.slice(0, 5)}...{activeWalletAddress.slice(-4)}</code>
-                        {copiedAddress ? <Check size={13} style={{ color: "var(--accent-green)" }} /> : <Copy size={13} />}
+                        <span>View Activity</span>
+                        <ArrowRight size={12} />
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* 2. REVOLUT / LOBSTR DESKTOP VAULT SUMMARY CARD */}
-                <div className="bank-card" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div className="bank-card-header" style={{ marginBottom: "0.75rem" }}>
+                {/* 3 STAT TILES — RIGHT COLUMN */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                  <div className="stat-tile">
+                    <div className="stat-tile-label">Active Projects</div>
+                    <div className="stat-tile-value" style={{ color: "var(--role-accent)" }}>{activeProjectsCount}</div>
+                    <div className="stat-tile-sub">Ongoing in your barangay</div>
+                  </div>
+
+                  <div className="grid-2-equal" style={{ gap: "0.75rem" }}>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Funds Reserved</div>
+                      <div className="stat-tile-value" style={{ fontSize: "1.2rem" }}>{totalLockedXlm.toLocaleString()}</div>
+                      <div className="stat-tile-sub">XLM · {formatXlmToPhp(totalLockedXlm)}</div>
+                    </div>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Funds Released</div>
+                      <div className="stat-tile-value" style={{ fontSize: "1.2rem", color: "var(--accent-green)" }}>{totalReleasedXlm.toLocaleString()}</div>
+                      <div className="stat-tile-sub">XLM · {formatXlmToPhp(totalReleasedXlm)}</div>
+                    </div>
+                  </div>
+
+                  <div className="stat-tile" style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
-                      <div className="bank-card-title" style={{ fontSize: "1.05rem" }}>Treasury Escrows Status</div>
-                      <div className="bank-card-subtitle">On-Chain Smart Contract Reserves</div>
+                      <div className="stat-tile-label">Approval Requirement</div>
+                      <div style={{ fontSize: "0.88rem", fontWeight: 800, color: "var(--text-primary)" }}>60% of residents must vote yes to release funds</div>
                     </div>
-                    <span className="badge badge-info" style={{ fontSize: "0.68rem" }}>
-                      <Landmark size={12} /> Testnet Live
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.85rem" }}>
-                    <div style={{ background: "var(--bg-elevated)", padding: "0.85rem", borderRadius: "14px", border: "1px solid var(--border-subtle)" }}>
-                      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 800, textTransform: "uppercase" }}>Locked in Escrow</div>
-                      <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "var(--accent-green)", marginTop: "0.2rem" }}>
-                        {totalLockedXlm.toLocaleString()} XLM
-                      </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                        ≈ {formatXlmToPhp(totalLockedXlm)}
-                      </div>
-                    </div>
-
-                    <div style={{ background: "var(--bg-elevated)", padding: "0.85rem", borderRadius: "14px", border: "1px solid var(--border-subtle)" }}>
-                      <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 800, textTransform: "uppercase" }}>Disbursed Funds</div>
-                      <div style={{ fontSize: "1.15rem", fontWeight: 900, color: "var(--text-primary)", marginTop: "0.2rem" }}>
-                        {totalReleasedXlm.toLocaleString()} XLM
-                      </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)" }}>
-                        ≈ {formatXlmToPhp(totalReleasedXlm)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: "0.85rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontSize: "0.76rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                      <Shield size={14} style={{ color: "var(--role-accent)" }} />
-                      <span>Consensus Quorum: <strong>60% Required</strong></span>
-                    </div>
-                    <button className="btn btn-outline btn-sm" onClick={() => setActiveMenu("ledger")} style={{ fontSize: "0.75rem", padding: "0.35rem 0.7rem" }}>
-                      Full Ledger â†’
+                    <button className="btn btn-outline btn-sm" onClick={() => setActiveMenu("projects")} style={{ fontSize: "0.75rem", flexShrink: 0 }}>
+                      Projects →
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* 4-COLUMN DISTINCT BANKING SERVICES HUB */}
-              <div className="fintech-service-matrix">
-                {activeRole === "resident" && (
-                  <>
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("voting")}>
-                      <div className="fintech-service-icon-box">
-                        <Vote size={22} />
-                      </div>
-                      <span className="fintech-service-label">Civic Vote</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("ledger")}>
-                      <div className="fintech-service-icon-box">
-                        <Landmark size={22} />
-                      </div>
-                      <span className="fintech-service-label">Treasury</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setUnlockDialogOpen(true)}>
-                      <div className="fintech-service-icon-box">
-                        <CheckCircle2 size={22} />
-                      </div>
-                      <span className="fintech-service-label">Voter Status</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setViewState("landing")}>
-                      <div className="fintech-service-icon-box">
-                        <Info size={22} />
-                      </div>
-                      <span className="fintech-service-label">About Portal</span>
-                    </button>
-                  </>
-                )}
-
-                {activeRole === "sk_official" && (
-                  <>
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("projects")}>
-                      <div className="fintech-service-icon-box">
-                        <FilePlus size={22} />
-                      </div>
-                      <span className="fintech-service-label">SK Studio</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("projects")}>
-                      <div className="fintech-service-icon-box">
-                        <FileText size={22} />
-                      </div>
-                      <span className="fintech-service-label">Upload Proof</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("ledger")}>
-                      <div className="fintech-service-icon-box">
-                        <Landmark size={22} />
-                      </div>
-                      <span className="fintech-service-label">Treasury</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setViewState("landing")}>
-                      <div className="fintech-service-icon-box">
-                        <Info size={22} />
-                      </div>
-                      <span className="fintech-service-label">About Portal</span>
-                    </button>
-                  </>
-                )}
-
-                {(activeRole === "barangay_admin" || activeRole === "system_admin") && (
-                  <>
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("admin")}>
-                      <div className="fintech-service-icon-box">
-                        <ShieldCheck size={22} />
-                      </div>
-                      <span className="fintech-service-label">KYC Review</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("admin")}>
-                      <div className="fintech-service-icon-box">
-                        <Building size={22} />
-                      </div>
-                      <span className="fintech-service-label">Deploy Escrows</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("ledger")}>
-                      <div className="fintech-service-icon-box">
-                        <Landmark size={22} />
-                      </div>
-                      <span className="fintech-service-label">Treasury</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setViewState("landing")}>
-                      <div className="fintech-service-icon-box">
-                        <Info size={22} />
-                      </div>
-                      <span className="fintech-service-label">About Portal</span>
-                    </button>
-                  </>
-                )}
-
-                {activeRole === "viewer" && (
-                  <>
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("ledger")}>
-                      <div className="fintech-service-icon-box">
-                        <Landmark size={22} />
-                      </div>
-                      <span className="fintech-service-label">Treasury</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setActiveMenu("voting")}>
-                      <div className="fintech-service-icon-box">
-                        <Vote size={22} />
-                      </div>
-                      <span className="fintech-service-label">Auditing Feed</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setViewState("auth")}>
-                      <div className="fintech-service-icon-box">
-                        <CheckCircle2 size={22} />
-                      </div>
-                      <span className="fintech-service-label">Register</span>
-                    </button>
-
-                    <button className="fintech-service-tile" onClick={() => setViewState("landing")}>
-                      <div className="fintech-service-icon-box">
-                        <Info size={22} />
-                      </div>
-                      <span className="fintech-service-label">About Portal</span>
-                    </button>
-                  </>
-                )}
+              {/* RECENT PROJECTS HIGHLIGHT */}
+              <div>
+                <YouthDashboard
+                  voterAddress={activeWalletAddress}
+                  projects={projects}
+                  isGuest={isGuest}
+                  onExecute={executeAction}
+                  onNavigateAuth={() => setViewState("auth")}
+                />
               </div>
-
-              {/* PUBLIC TRANSPARENCY & STATEMENT LEDGER COMPONENT */}
-              <TransparencyHub projects={projects} eventLogs={eventLogs} />
             </div>
           )}
 
-          {/* =========================================================================
-              SCREEN: CIVIC VOTING WORKSPACE
-              ========================================================================= */}
-          {activeMenu === "voting" && (
-            <div style={{ marginTop: "1.25rem" }}>
+          {/* SCREEN: COMMUNITY PROJECTS (CIVIC VOTING & DISCOVERY) */}
+          {activeMenu === "projects" && (
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
               <YouthDashboard
                 voterAddress={activeWalletAddress}
                 projects={projects}
+                isGuest={isGuest}
                 onExecute={executeAction}
+                onNavigateAuth={() => setViewState("auth")}
               />
             </div>
           )}
 
-          {/* =========================================================================
-              SCREEN: SK PROPOSAL STUDIO WORKSPACE
-              ========================================================================= */}
-          {activeMenu === "projects" && (
-            <div style={{ marginTop: "1.25rem" }}>
+          {/* SCREEN: PUBLIC ESCROW LEDGER */}
+          {activeMenu === "ledger" && (
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
+              <TransparencyHub
+                projects={projects}
+                eventLogs={eventLogs}
+                userWalletAddress={activeWalletAddress}
+              />
+            </div>
+          )}
+
+          {/* SCREEN: ACTIVITY & RECEIPTS (MERGED NOTIFICATIONS & WALLET TRANSACTIONS) */}
+          {activeMenu === "activity" && (
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
+              <ActivityView
+                userWalletAddress={activeWalletAddress}
+              />
+            </div>
+          )}
+
+          {/* SCREEN: MY ACCOUNT & ROLE WORKSPACE ENTRY */}
+          {activeMenu === "profile" && (
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
+              <ProfileSettingsPanel
+                profile={profile}
+                xlmBalance={xlmBalance}
+                onRequestResubmission={onRequestResubmission}
+                onOpenWorkspace={(workspaceKey) => navigateToMenu(workspaceKey === "projects" ? "studio" : "admin")}
+              />
+            </div>
+          )}
+
+          {/* ROLE SCREEN: SK PROPOSAL STUDIO */}
+          {activeMenu === "studio" && (
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
               <SKWorkspace
                 skAddress={activeWalletAddress}
                 projects={projects}
@@ -772,11 +730,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
             </div>
           )}
 
-          {/* =========================================================================
-              SCREEN: ADMIN OPERATIONS / KYC REVIEW DESK
-              ========================================================================= */}
+          {/* ROLE SCREEN: ADMIN OPERATIONS DESK */}
           {activeMenu === "admin" && (
-            <div style={{ marginTop: "1.25rem" }}>
+            <div className="page-enter" style={{ marginTop: "0.5rem" }}>
               <AdminPanel
                 adminAddress={activeWalletAddress}
                 projects={projects}
@@ -784,92 +740,67 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
               />
             </div>
           )}
-
-          {/* =========================================================================
-              SCREEN: TREASURY STATEMENT / LEDGER
-              ========================================================================= */}
-          {activeMenu === "ledger" && (
-            <div style={{ marginTop: "1.25rem" }}>
-              <TransparencyHub projects={projects} eventLogs={eventLogs} />
-            </div>
-          )}
-
-          {/* =========================================================================
-              SCREEN: ALERTS / NOTIFICATIONS INBOX
-              ========================================================================= */}
-          {activeMenu === "notifications" && (
-            <div style={{ marginTop: "1.25rem" }}>
-              <NotificationsPanel profile={profile} />
-            </div>
-          )}
-
-          {/* =========================================================================
-              SCREEN: ACCOUNT / PROFILE & WALLET SETTINGS
-              ========================================================================= */}
-          {activeMenu === "profile" && (
-            <div style={{ marginTop: "1.25rem" }}>
-              <ProfileSettingsPanel
-                profile={profile}
-                xlmBalance={xlmBalance}
-                onRequestResubmission={onRequestResubmission}
-              />
-            </div>
-          )}
         </div>
       </main>
 
       {/* =========================================================================
-          3. FIXED 5-TAB MOBILE BOTTOM DOCK (ACTIVE ONLY ON < 1024PX SCREENS)
+          3. FIXED MOBILE BOTTOM DOCK (STREAMLINED PRIMARY TABS)
           ========================================================================= */}
-      <nav className="maya-bottom-dock">
-        <button
-          className={`maya-dock-tab ${activeMenu === "dashboard" ? "active" : ""}`}
-          onClick={() => setActiveMenu("dashboard")}
-        >
-          <Home size={19} />
-          <span>Home</span>
-        </button>
+      <nav className="civic-bottom-dock">
+        {isGuest ? (
+          <>
+            <button
+              className={`civic-dock-tab ${activeMenu === "projects" || activeMenu === "dashboard" ? "active" : ""}`}
+              onClick={() => navigateToMenu("projects")}
+            >
+              <Vote size={19} />
+              <span>Explore Projects</span>
+            </button>
 
-        <button
-          className={`maya-dock-tab ${activeMenu === "ledger" ? "active" : ""}`}
-          onClick={() => setActiveMenu("ledger")}
-        >
-          <Activity size={19} />
-          <span>Ledger</span>
-        </button>
+            <button
+              className="civic-dock-tab"
+              onClick={() => setViewState("auth")}
+              style={{ color: "var(--role-accent)", fontWeight: 800 }}
+            >
+              <User size={19} />
+              <span>Sign In</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              className={`civic-dock-tab ${activeMenu === "dashboard" ? "active" : ""}`}
+              onClick={() => navigateToMenu("dashboard")}
+            >
+              <Home size={19} />
+              <span>Home</span>
+            </button>
 
-        {/* Center Floating Action Circle (Role-Based Primary Workspace) */}
-        <button
-          className="maya-dock-tab center-action"
-          onClick={() => {
-            if (activeRole === "sk_official") setActiveMenu("projects");
-            else if (activeRole === "barangay_admin" || activeRole === "system_admin") setActiveMenu("admin");
-            else setActiveMenu("voting");
-          }}
-        >
-          <div className="maya-dock-center-circle">
-            {activeRole === "sk_official" ? <FilePlus size={22} /> : activeRole === "barangay_admin" ? <ShieldCheck size={22} /> : <Vote size={22} />}
-          </div>
-          <span style={{ marginTop: "2px", fontWeight: 800 }}>
-            {activeRole === "sk_official" ? "Studio" : activeRole === "barangay_admin" ? "Admin" : "Vote"}
-          </span>
-        </button>
+            <button
+              className={`civic-dock-tab ${activeMenu === "projects" ? "active" : ""}`}
+              onClick={() => navigateToMenu("projects")}
+            >
+              <Vote size={19} />
+              <span>Projects</span>
+            </button>
 
-        <button
-          className={`maya-dock-tab ${activeMenu === "notifications" ? "active" : ""}`}
-          onClick={() => setActiveMenu("notifications")}
-        >
-          <Bell size={19} />
-          <span>Alerts</span>
-        </button>
+            <button
+              className={`civic-dock-tab ${activeMenu === "activity" ? "active" : ""}`}
+              onClick={() => navigateToMenu("activity")}
+            >
+              <Receipt size={19} />
+              <span>Activity</span>
+            </button>
 
-        <button
-          className={`maya-dock-tab ${activeMenu === "profile" ? "active" : ""}`}
-          onClick={() => setActiveMenu("profile")}
-        >
-          <User size={19} />
-          <span>Account</span>
-        </button>
+            <button
+              className={`civic-dock-tab ${activeMenu === "profile" ? "active" : ""}`}
+              onClick={() => navigateToMenu("profile")}
+            >
+              <User size={19} />
+              <span>Account</span>
+            </button>
+          </>
+        )}
       </nav>
 
       {/* UNLOCK / VERIFICATION CHECKLIST MODAL */}
@@ -888,6 +819,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
         error={txError}
         onClose={handleCloseTxModal}
       />
+
+      {/* QR PAY & RECEIVE MODAL */}
+      <QrModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        userAddress={activeWalletAddress}
+        xlmBalance={xlmBalance}
+        initialTab={qrModalTab}
+        secretKey={profile?.inAppWalletSecret || undefined}
+        onExecute={executeAction}
+      />
+
+      {/* WALLET TRANSACTION HISTORY & PDF RECEIPT MODAL */}
+      <WalletTransactionHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        walletAddress={activeWalletAddress}
+      />
+
+      {/* NEWLY PROMOTED SK CELEBRATION MODAL */}
+      <SKCelebrationModal onOpenSKWorkspace={() => setActiveMenu("projects")} />
     </div>
   );
 };

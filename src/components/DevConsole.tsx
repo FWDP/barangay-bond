@@ -8,8 +8,6 @@ import { collection, query, orderBy, onSnapshot, getDocs, writeBatch } from "fir
 import { useLoading } from "../contexts/LoadingContext";
 
 export const DevConsole: React.FC = () => {
-  if (!DEBUG_MODE) return null;
-
   const { startLoading, stopLoading } = useLoading();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<
@@ -219,6 +217,8 @@ export const DevConsole: React.FC = () => {
 
   const filteredLogs = getFilteredLogs();
 
+  if (!DEBUG_MODE) return null;
+
   return (
     <>
       {/* Floating Toggle Inspect Button */}
@@ -332,7 +332,41 @@ export const DevConsole: React.FC = () => {
               </select>
 
               {/* Action Buttons */}
-              <button onClick={handleCopy} title="Copy Logs" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>
+              <button
+                onClick={() => {
+                  const diagnosticData = {
+                    systemInfo: {
+                      timestamp: new Date().toISOString(),
+                      url: window.location.href,
+                      userAgent: navigator.userAgent,
+                      debugMode: DEBUG_MODE,
+                    },
+                    logCount: logs.length,
+                    recentErrors: logs.filter(l => l.category === "ERROR" || l.category === "CRITICAL").slice(-20),
+                    recentBlockchain: logs.filter(l => l.category === "BLOCKCHAIN" || l.module === "SOROBAN" || l.module === "WALLET").slice(-20),
+                    recentLogs: logs.slice(-50),
+                  };
+                  navigator.clipboard.writeText(JSON.stringify(diagnosticData, null, 2));
+                  alert("✓ Full System Diagnostics copied to clipboard! You can paste it directly into chat.");
+                }}
+                title="📋 Copy Full Diagnostics for Agent"
+                style={{
+                  background: "rgba(56, 189, 248, 0.15)",
+                  border: "1px solid rgba(56, 189, 248, 0.4)",
+                  color: "#38bdf8",
+                  borderRadius: "6px",
+                  padding: "0.2rem 0.55rem",
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem"
+                }}
+              >
+                <Clipboard size={13} /> Copy Diagnostics
+              </button>
+              <button onClick={handleCopy} title="Copy Plain Logs" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>
                 <Clipboard size={16} />
               </button>
               <button onClick={() => handleExport("json")} title="Export JSON" style={{ background: "transparent", border: "none", color: "#94a3b8", cursor: "pointer" }}>

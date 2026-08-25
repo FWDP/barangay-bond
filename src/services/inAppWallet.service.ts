@@ -36,17 +36,32 @@ export const inAppWalletService = {
    */
   async ensureUserWallet(user: UserProfile): Promise<UserProfile> {
     if (user.walletAddress && user.inAppWalletSecret) {
-      return user; // Already fully provisioned
+      try {
+        const derivedPub = Keypair.fromSecret(user.inAppWalletSecret).publicKey();
+        if (derivedPub === user.walletAddress) {
+          return user; // Already fully provisioned and keys match
+        }
+        // If they don't match, repair the profile to use the derived public key
+        const updates: Partial<UserProfile> = {
+          walletAddress: derivedPub,
+          isInAppWallet: true,
+          walletVerified: true,
+        };
+        await userRepository.updateUserProfile(user.uid, updates);
+        logger.info(`[inAppWalletService] Repaired in-app wallet address mismatch for ${user.email}: ${derivedPub}`, "Auth");
+        this.fundTestnetWallet(derivedPub);
+        return { ...user, ...updates };
+      } catch (e) {
+        // Fall through to generate fresh keypair if secret is invalid
+      }
     }
 
-    // Generate new keypair if wallet is completely missing or secret is missing
+    // Generate a fresh unified keypair where publicKey and secretKey are guaranteed to match
     const { publicKey, secretKey } = this.generateKeypair();
-    const updatedWalletAddress = user.walletAddress || publicKey;
-    const updatedSecret = user.inAppWalletSecret || secretKey;
 
     const updates: Partial<UserProfile> = {
-      walletAddress: updatedWalletAddress,
-      inAppWalletSecret: updatedSecret,
+      walletAddress: publicKey,
+      inAppWalletSecret: secretKey,
       isInAppWallet: true,
       walletVerified: true,
       walletLinkedAt: user.walletLinkedAt || new Date().toISOString(),
@@ -54,10 +69,10 @@ export const inAppWalletService = {
 
     try {
       await userRepository.updateUserProfile(user.uid, updates);
-      logger.info(`[inAppWalletService] Auto-provisioned in-app wallet for ${user.email} (${user.role}): ${updatedWalletAddress}`, "Auth");
+      logger.info(`[inAppWalletService] Auto-provisioned in-app wallet for ${user.email} (${user.role}): ${publicKey}`, "Auth");
       
       // Asynchronously trigger Friendbot funding for testnet
-      this.fundTestnetWallet(updatedWalletAddress);
+      this.fundTestnetWallet(publicKey);
 
       return {
         ...user,

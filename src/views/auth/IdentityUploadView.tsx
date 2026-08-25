@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { compressImage } from "../../utils/imageCompressor";
-import { Camera, UploadCloud, ShieldCheck, LogOut, ArrowRight } from "lucide-react";
+import { Camera, UploadCloud, LogOut, ArrowRight } from "lucide-react";
 
 interface IdentityUploadViewProps {
   profile: any;
@@ -36,8 +36,12 @@ export const IdentityUploadView: React.FC<IdentityUploadViewProps> = ({ profile,
   return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.25rem", backgroundColor: "var(--bg-base)" }}>
       <div className="bank-card" style={{ maxWidth: "540px", width: "100%", padding: "2.5rem 2rem" }}>
-        <div style={{ width: "60px", height: "60px", borderRadius: "9999px", background: "var(--role-accent-soft)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.25rem auto", color: "var(--role-accent)" }}>
-          <ShieldCheck size={32} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem" }}>
+          <img
+            src="/logo.png"
+            alt="Barangay Bond"
+            style={{ width: "52px", height: "52px", borderRadius: "14px", objectFit: "contain" }}
+          />
         </div>
 
         <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--text-primary)", marginBottom: "0.4rem", textAlign: "center" }}>

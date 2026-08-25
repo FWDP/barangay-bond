@@ -1,24 +1,24 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
 
 /* ==========================================================================
-   BARANGAY BOND Ã¢â‚¬â€ DUAL-THEME CIVIC BANKING DESIGN SYSTEM
-   Inspired by LOBSTR, Freighter, Mercury Bank, Maya, GCash
+   BARANGAY BOND — DUAL-THEME CIVIC BANKING & WEB3 DESIGN SYSTEM
+   Inspired by Rainbow, Phantom, Uniswap, Mercury Bank, and Modern Neobanks
    ========================================================================== */
 
 /* ---------- DARK THEME (Default) ---------- */
 :root,
 [data-theme="dark"] {
-  --bg-base:          var(--text-inverse);
-  --bg-surface:       #0f141f;
-  --bg-elevated:      #161e2e;
-  --bg-hover:         #1c263a;
-  --bg-input:         #0a0e17;
-  --bg-overlay:       rgba(3, 6, 12, 0.85);
-  --bg-sidebar:       rgba(10, 14, 22, 0.96);
-  --bg-dock:          rgba(10, 14, 22, 0.96);
+  --bg-base:          #070a12;
+  --bg-surface:       #0f1422;
+  --bg-elevated:      #161e32;
+  --bg-hover:         #1d2840;
+  --bg-input:         #0a0e1a;
+  --bg-overlay:       rgba(3, 6, 12, 0.88);
+  --bg-sidebar:       rgba(10, 14, 24, 0.96);
+  --bg-dock:          rgba(10, 14, 24, 0.96);
 
-  --border-primary:   #1e293b;
-  --border-subtle:    rgba(255, 255, 255, 0.08);
+  --border-primary:   rgba(255, 255, 255, 0.1);
+  --border-subtle:    rgba(255, 255, 255, 0.06);
   --border-active:    #3b82f6;
 
   --text-primary:     #ffffff;
@@ -29,26 +29,26 @@
   /* Fintech Accents (identical in both themes) */
   --accent-green:     #00d665;
   --accent-green-hover: #00bd59;
-  --accent-green-glow: rgba(0, 214, 101, 0.25);
-  --accent-green-soft: rgba(0, 214, 101, 0.12);
+  --accent-green-glow: rgba(0, 214, 101, 0.3);
+  --accent-green-soft: rgba(0, 214, 101, 0.14);
 
   --accent-blue:      #007dfe;
   --accent-blue-hover: #0066d6;
-  --accent-blue-glow: rgba(0, 125, 254, 0.25);
-  --accent-blue-soft: rgba(0, 125, 254, 0.12);
+  --accent-blue-glow: rgba(0, 125, 254, 0.3);
+  --accent-blue-soft: rgba(0, 125, 254, 0.14);
 
   --accent-yellow:    #facc15;
-  --accent-yellow-soft: rgba(250, 204, 21, 0.12);
+  --accent-yellow-soft: rgba(250, 204, 21, 0.14);
 
   --accent-danger:    #ef4444;
-  --accent-danger-soft: rgba(239, 68, 68, 0.12);
+  --accent-danger-soft: rgba(239, 68, 68, 0.14);
 
   /* Dynamic Role Accents */
   --role-accent:      #00d665;
   --role-accent-hover: #00bd59;
-  --role-accent-soft: rgba(0, 214, 101, 0.12);
-  --role-accent-border: rgba(0, 214, 101, 0.3);
-  --role-card-gradient: linear-gradient(135deg, #09331e 0%, #0c1824 60%, var(--text-inverse) 100%);
+  --role-accent-soft: rgba(0, 214, 101, 0.14);
+  --role-accent-border: rgba(0, 214, 101, 0.35);
+  --role-card-gradient: linear-gradient(135deg, #09331e 0%, #0c1824 60%, #070a12 100%);
   --role-badge-color: #00f59b;
 
   /* Typography */
@@ -72,7 +72,7 @@
   --bg-elevated:      #f8fafc;
   --bg-hover:         #e2e8f0;
   --bg-input:         #ffffff;
-  --bg-overlay:       rgba(15, 23, 42, 0.5);
+  --bg-overlay:       rgba(15, 23, 42, 0.6);
   --bg-sidebar:       #ffffff;
   --bg-dock:          rgba(255, 255, 255, 0.96);
 
@@ -102,7 +102,7 @@
   --accent-danger:    #dc2626;
   --accent-danger-soft: rgba(220, 38, 38, 0.08);
 
-  /* Role accents Ã¢â‚¬â€ slightly deeper for light-bg readability */
+  /* Role accents — slightly deeper for light-bg readability */
   --role-accent:      #00c05a;
   --role-accent-hover: #00a34e;
   --role-accent-soft: rgba(0, 192, 90, 0.1);
@@ -122,7 +122,7 @@
    ROLE-BASED FINTECH THEMES
    ========================================================================== */
 
-/* Resident (Maya Emerald Neobank) */
+/* Resident (Emerald Neobank) */
 .role-resident {
   --role-accent: #00d665;
   --role-accent-hover: #00bd59;
@@ -203,6 +203,188 @@
 }
 
 /* ==========================================================================
+   DESIGN TOKENS — SPACING / RADIUS / TRANSITIONS
+   ========================================================================== */
+
+:root {
+  /* Spacing Scale */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.25rem;
+  --sp-6: 1.5rem;
+  --sp-8: 2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+
+  /* Radius Scale */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+  --r-2xl: 28px;
+  --r-pill: 9999px;
+
+  /* Transitions */
+  --t-fast: 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-normal: 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  --t-slow: 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ==========================================================================
+   ANIMATION KEYFRAMES
+   ========================================================================== */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ==========================================================================
+   PAGE ENTRY ANIMATION
+   ========================================================================== */
+
+.page-enter {
+  animation: fadeUp var(--t-slow) both;
+}
+
+.page-enter-fast {
+  animation: fadeUp 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.page-enter > *:nth-child(1) { animation-delay: 0ms; }
+.page-enter > *:nth-child(2) { animation-delay: 40ms; }
+.page-enter > *:nth-child(3) { animation-delay: 80ms; }
+.page-enter > *:nth-child(4) { animation-delay: 120ms; }
+.page-enter > *:nth-child(5) { animation-delay: 160ms; }
+
+/* ==========================================================================
+   UTILITY LAYOUT CLASSES
+   ========================================================================== */
+
+/* Reusable section card — replaces ad-hoc bank-card, glass-card, panel-card */
+.section-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--r-xl);
+  padding: var(--sp-5) var(--sp-6);
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+
+/* Clean metric tile — for 3-column stat rows */
+.stat-tile {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  transition: border-color var(--t-fast);
+}
+
+.stat-tile:hover {
+  border-color: var(--role-accent-border);
+}
+
+.stat-tile-label {
+  font-size: 0.73rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.stat-tile-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.stat-tile-sub {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: var(--sp-1);
+}
+
+/* Action row — max 3 buttons side-by-side */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* 3-column stat grid */
+.stats-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+}
+
+@media (max-width: 640px) {
+  .stats-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+  }
+}
+
+/* 2-column equal split */
+.grid-2-equal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-4);
+}
+
+@media (max-width: 640px) {
+  .grid-2-equal {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
    GLOBAL RESET & APP FRAME
    ========================================================================== */
 
@@ -222,6 +404,7 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
+
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
@@ -266,7 +449,7 @@ html, body {
 }
 
 /* ==========================================================================
-   DESKTOP BANKING SHELL & SIDEBAR NAVIGATION (LOBSTR / MERCURY / MAYA PRO)
+   DESKTOP BANKING SHELL & SIDEBAR NAVIGATION (LOBSTR / MERCURY / PRO VAULT)
    ========================================================================== */
 
 .desktop-bank-shell {
@@ -286,17 +469,17 @@ html, body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    width: 280px;
-    min-width: 280px;
-    max-width: 280px;
+    width: 240px;
+    min-width: 240px;
+    max-width: 240px;
     height: 100vh;
     position: sticky;
     top: 0;
     background: var(--bg-sidebar);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border-right: 1px solid var(--border-primary);
-    padding: 1.5rem 1.15rem;
+    border-right: 1px solid var(--border-subtle);
+    padding: 1.25rem 1rem;
     z-index: 40;
     overflow-y: auto;
   }
@@ -370,18 +553,24 @@ html, body {
   border-radius: 16px;
   padding: 0.85rem 0.95rem;
   display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.bank-sidebar-user-top {
+  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .bank-sidebar-avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   background: var(--role-accent);
   color: var(--text-inverse);
   font-weight: 900;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -407,6 +596,18 @@ html, body {
 .bank-sidebar-user-loc {
   font-size: 0.72rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bank-sidebar-user-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border-subtle);
 }
 
 /* Sidebar Navigation Items */
@@ -518,20 +719,21 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  background: var(--bg-sidebar);
+  padding: 0.85rem 1.25rem;
+  background: var(--bg-surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border-primary);
+  border-bottom: 1px solid var(--border-subtle);
   position: sticky;
   top: 0;
   z-index: 30;
   gap: 1rem;
+  min-height: 60px;
 }
 
 @media (min-width: 1024px) {
   .desktop-top-bar {
-    padding: 1.15rem 2.25rem;
+    padding: 0.9rem 2rem;
   }
 }
 
@@ -550,36 +752,207 @@ html, body {
   }
 }
 
-/* Responsive Banking Container (Mobile First, Adaptive Tablet & Desktop) */
+/* Responsive Banking Container */
 .banking-app-container {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1240px;
   margin: 0 auto;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 0 1rem 6rem 1rem;
+  gap: 1.25rem;
 }
 
 @media (min-width: 1024px) {
   .banking-app-container {
-    padding: 1.5rem 2.25rem 4rem 2.25rem;
-    max-width: 1400px;
-    margin: 0;
+    padding: 1.75rem 2rem 4rem 2rem;
+    max-width: 1240px;
+    margin: 0 auto;
+    gap: 1.5rem;
   }
 }
 
 @media (max-width: 640px) {
   .banking-app-container {
-    padding: 0 0.85rem 6.5rem 0.85rem;
+    padding: 0.75rem 0.85rem 6.5rem 0.85rem;
+    gap: 1rem;
   }
 }
 
 /* ==========================================================================
-   MAYA / GCASH SIGNATURE MASTER BALANCE CARD
+   TOP BAR CONTROLS & PAGE TITLE
    ========================================================================== */
 
-.maya-master-card {
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.topbar-page-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.topbar-page-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.topbar-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  position: relative;
+}
+
+.topbar-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--role-accent-border);
+}
+
+.topbar-avatar-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--role-accent);
+  color: var(--text-inverse);
+  font-weight: 900;
+  font-size: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 2px solid var(--bg-elevated);
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+
+.topbar-avatar-btn:hover {
+  filter: brightness(1.15);
+  transform: scale(1.05);
+}
+
+.topbar-notif-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-danger);
+  border: 2px solid var(--bg-surface);
+}
+
+/* ==========================================================================
+   DASHBOARD GREETING HEADER
+   ========================================================================== */
+
+.dash-greeting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0 0 0;
+}
+
+.dash-greeting-name {
+  font-size: clamp(1.25rem, 3vw, 1.6rem);
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.dash-greeting-sub {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   QUICK ACTIONS PANEL
+   ========================================================================== */
+
+.quick-actions-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.75rem;
+}
+
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all var(--t-normal);
+  color: var(--text-secondary);
+}
+
+.quick-action-btn:hover {
+  background: var(--role-accent-soft);
+  border-color: var(--role-accent-border);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+}
+
+.quick-action-btn:active {
+  transform: scale(0.96);
+}
+
+.quick-action-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--role-accent);
+  transition: all var(--t-fast);
+}
+
+.quick-action-btn:hover .quick-action-icon {
+  background: var(--role-accent);
+  color: var(--text-inverse);
+  border-color: var(--role-accent);
+}
+
+.quick-action-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: inherit;
+  text-align: center;
+  line-height: 1.2;
+}
+
+/* ==========================================================================
+   CIVIC SIGNATURE MASTER BALANCE CARD
+   ========================================================================== */
+
+
+.civic-master-card {
   background: var(--role-card-gradient);
   border: 1px solid var(--role-accent-border);
   border-radius: 26px;
@@ -592,7 +965,7 @@ html, body {
   gap: 1.25rem;
 }
 
-.maya-master-card::after {
+.civic-master-card::after {
   content: "";
   position: absolute;
   top: -40%;
@@ -604,7 +977,7 @@ html, body {
   pointer-events: none;
 }
 
-.maya-card-top {
+.civic-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -612,7 +985,7 @@ html, body {
   z-index: 2;
 }
 
-.maya-card-chip-tag {
+.civic-card-chip-tag {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -627,7 +1000,7 @@ html, body {
   text-transform: uppercase;
 }
 
-.maya-balance-label {
+.civic-balance-label {
   font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -638,7 +1011,7 @@ html, body {
   gap: 0.45rem;
 }
 
-.maya-balance-amount {
+.civic-balance-amount {
   font-size: clamp(2.1rem, 5.5vw, 2.9rem);
   font-weight: 900;
   letter-spacing: -0.03em;
@@ -647,14 +1020,14 @@ html, body {
   margin: 0.3rem 0 0.15rem 0;
 }
 
-.maya-balance-sub {
+.civic-balance-sub {
   font-size: 0.92rem;
   font-weight: 700;
   color: var(--role-badge-color);
 }
 
-/* In-Card Quick Banking Actions (GCash & Maya In-Card Ribbon) */
-.maya-card-action-bar {
+/* In-Card Quick Banking Actions (In-Card Ribbon) */
+.civic-card-action-bar {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -666,7 +1039,7 @@ html, body {
   flex-wrap: wrap;
 }
 
-.maya-card-btn {
+.civic-card-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -682,22 +1055,22 @@ html, body {
   transition: all 0.2s ease;
 }
 
-.maya-card-btn:hover {
+.civic-card-btn:hover {
   background: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
 }
 
-.maya-card-btn.primary {
+.civic-card-btn.primary {
   background: var(--role-accent);
   color: var(--text-inverse);
   border-color: var(--role-accent);
 }
-.maya-card-btn.primary:hover {
+.civic-card-btn.primary:hover {
   filter: brightness(1.1);
 }
 
 /* ==========================================================================
-   GCASH & MAYA 4x2 SERVICE ICON MATRIX
+   4x2 CIVIC SERVICE ICON MATRIX
    ========================================================================== */
 
 .fintech-service-matrix {
@@ -1297,10 +1670,10 @@ html, body {
 }
 
 /* ==========================================================================
-   FIXED 5-TAB MOBILE BOTTOM DOCK (MAYA / GCASH DOCK)
+   FIXED 5-TAB MOBILE BOTTOM DOCK (CIVIC DOCK)
    ========================================================================== */
 
-.maya-bottom-dock {
+.civic-bottom-dock {
   display: flex;
   position: fixed;
   bottom: 0;
@@ -1318,12 +1691,12 @@ html, body {
 }
 
 @media (min-width: 1024px) {
-  .maya-bottom-dock {
+  .civic-bottom-dock {
     display: none;
   }
 }
 
-.maya-dock-tab {
+.civic-dock-tab {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1340,22 +1713,22 @@ html, body {
   transition: all 0.15s ease;
 }
 
-.maya-dock-tab.active {
+.civic-dock-tab.active {
   color: var(--role-accent);
 }
 
-.maya-dock-tab.active svg {
+.civic-dock-tab.active svg {
   transform: translateY(-2px);
   filter: drop-shadow(0 0 8px var(--role-accent-soft));
 }
 
 /* Center Highlighted Action in Dock */
-.maya-dock-tab.center-action {
+.civic-dock-tab.center-action {
   position: relative;
   top: -12px;
 }
 
-.maya-dock-center-circle {
+.civic-dock-center-circle {
   width: 50px;
   height: 50px;
   border-radius: 50%;
@@ -1374,27 +1747,56 @@ html, body {
 
 .modal-overlay {
   position: fixed;
-  inset: 0;
-  background: rgba(3, 6, 12, 0.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100dvh;
+  background: rgba(3, 6, 12, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  padding: 1rem;
+  z-index: 10000;
+  padding: 1.25rem;
+  overflow-y: auto;
+  animation: modalFadeIn 0.2s ease-out;
 }
 
 .modal-content {
   background: var(--bg-surface);
   border: 1px solid var(--border-primary);
   border-radius: 24px;
-  box-shadow: var(--shadow-floating);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75);
   width: 100%;
-  max-width: 580px;
+  max-width: 620px;
   padding: 1.85rem;
-  max-height: 90dvh;
+  max-height: 88dvh;
   overflow-y: auto;
+  position: relative;
+  animation: modalScaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalScaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @media (max-width: 767px) {
@@ -1407,6 +1809,16 @@ html, body {
     border-radius: 28px 28px 0 0;
     max-height: 88dvh;
     padding: 1.5rem 1.25rem env(safe-area-inset-bottom, 1rem) 1.25rem;
+    animation: modalSlideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@keyframes modalSlideUpMobile {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
   }
 }
 
@@ -1417,3 +1829,895 @@ html, body {
   background: var(--border-primary);
   margin: 0 auto 1.1rem auto;
 }
+
+/* ==========================================================================
+   WEB3 & FINTECH MICRO-UTILITIES
+   ========================================================================== */
+
+.web3-receipt-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 1.1rem 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.explorer-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.explorer-chip:hover {
+  background: var(--role-accent-soft);
+  color: var(--role-badge-color);
+  border-color: var(--role-accent-border);
+  transform: translateY(-1px);
+}
+
+.quorum-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+  position: relative;
+}
+
+.quorum-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--accent-blue) 0%, var(--accent-green) 100%);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tap-scale {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tap-scale:active {
+  transform: scale(0.97);
+}
+
+.glow-border-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.glow-border-hover:hover {
+  border-color: var(--role-accent-border);
+  box-shadow: 0 0 20px var(--role-accent-soft);
+}
+
+/* ==========================================================================
+   WIZARD STEPPER & AUTH FORM STYLING
+   ========================================================================== */
+
+.wizard-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.35rem;
+  padding: 0.35rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 14px;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .wizard-progress-bar {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
+.step-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.45rem 0.35rem;
+  border-radius: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  background: transparent;
+  transition: all 0.2s ease;
+}
+
+.step-dot.active {
+  background: var(--role-accent-soft);
+  color: var(--role-badge-color);
+  font-weight: 800;
+  border: 1px solid var(--role-accent-border);
+  box-shadow: 0 2px 8px var(--role-accent-soft);
+}
+
+.step-dot.completed {
+  color: var(--accent-green);
+}
+
+/* ==========================================================================
+   BENTO STATS GRID & KPI TILES
+   ========================================================================== */
+
+.bank-stats-grid,
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .bank-stats-grid,
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .bank-stats-grid,
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bank-stat,
+.stats-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: 18px;
+  padding: 1.25rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+  gap: 0.4rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.bank-stat:hover,
+.stats-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-floating);
+}
+
+.bank-stat-header,
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bank-stat-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--role-accent-soft);
+  color: var(--role-badge-color);
+  flex-shrink: 0;
+}
+
+.bank-stat-value,
+.stats-value {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0.2rem 0;
+}
+
+.bank-stat-desc,
+.stats-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   FINTECH SUB-NAVIGATION TABS RAIL
+   ========================================================================== */
+
+.fintech-tabs-rail {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  padding: 0.4rem;
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fintech-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.15rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fintech-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.fintech-tab-btn.active {
+  background: var(--role-accent-soft);
+  color: var(--role-badge-color);
+  border-color: var(--role-accent-border);
+  box-shadow: 0 2px 10px var(--role-accent-soft);
+}
+
+.fintech-tab-badge {
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  border-radius: 9999px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.fintech-tab-btn.active .fintech-tab-badge {
+  background: var(--role-badge-color);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+/* ==========================================================================
+   DESKTOP TOP BAR & APP HEADER
+   ========================================================================== */
+
+.desktop-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.1rem 2rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.top-bar-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.top-bar-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--role-accent-soft);
+  color: var(--role-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  border: 1.5px solid var(--role-accent-border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.top-bar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.top-bar-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.top-bar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-top: 0.15rem;
+  white-space: nowrap;
+}
+
+.top-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .desktop-top-bar {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+  .top-bar-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+  .top-bar-title {
+    font-size: 1rem;
+  }
+}
+
+/* ==========================================================================
+   ADMIN DESK, BENTO KPI GRID & TABLES
+   ========================================================================== */
+
+.admin-dashboard-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.bank-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.bank-stat {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 1.35rem 1.4rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.bank-stat:hover {
+  border-color: var(--border-primary);
+  transform: translateY(-2px);
+}
+
+.bank-stat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bank-stat-icon-wrapper {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bank-stat-value {
+  font-size: 1.85rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.bank-stat-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.panel-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: 22px;
+  padding: 1.6rem 1.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.panel-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.panel-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 0.15rem;
+}
+
+/* Data Tables */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table thead th {
+  background: var(--bg-elevated);
+  padding: 0.9rem 1.15rem;
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-primary);
+  white-space: nowrap;
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 0.15s ease;
+}
+
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.table tbody td {
+  padding: 1.1rem 1.15rem;
+  font-size: 0.86rem;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+/* ==========================================================================
+   KYC AUDIT DRAWER & DOCUMENT INSPECTION
+   ========================================================================== */
+
+.identity-detail-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  height: 100dvh;
+  width: 580px;
+  max-width: 100vw;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-primary);
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 0 !important;
+  z-index: 10000;
+  box-shadow: -14px 0 45px rgba(0, 0, 0, 0.45);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  animation: drawerSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes drawerSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.5rem;
+}
+
+.doc-inspect-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: all 0.2s ease;
+}
+
+.doc-inspect-card:hover {
+  border-color: var(--border-primary);
+  background: var(--bg-hover);
+}
+
+.doc-inspect-thumbnail {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.doc-inspect-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.25s ease;
+}
+
+.doc-inspect-thumbnail:hover img {
+  transform: scale(1.06);
+}
+
+.doc-inspect-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.doc-inspect-thumbnail:hover .doc-inspect-overlay {
+  opacity: 1;
+}
+
+.doc-inspect-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f172a;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Avatar Circle */
+.avatar-circle {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 50%;
+  background: var(--role-accent-soft);
+  color: var(--role-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  border: 1.5px solid var(--role-accent-border);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.text-muted-sm {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.text-secondary-sm {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+/* =========================================================================
+   AURORA VAULT CIVIC-FINTECH LANDING PAGE SYSTEM
+   ========================================================================= */
+
+/* 3D & Perspective Utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Aurora Background Glows */
+.aurora-glow-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.aurora-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.45;
+  animation: auroraFlow 12s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+
+.aurora-orb-1 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.45) 0%, rgba(59, 130, 246, 0.1) 70%, transparent 100%);
+  top: -100px;
+  left: 10%;
+}
+
+.aurora-orb-2 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.35) 0%, rgba(6, 182, 212, 0.08) 70%, transparent 100%);
+  top: 15%;
+  right: 5%;
+  animation-delay: -4s;
+}
+
+.aurora-orb-3 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.05) 70%, transparent 100%);
+  bottom: 20%;
+  left: 20%;
+  animation-delay: -8s;
+}
+
+/* 3D Tilting Vault Holographic Card */
+.vault-3d-card-wrapper {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  transition: transform 0.1s ease-out;
+}
+
+.vault-3d-card-inner {
+  position: relative;
+  border-radius: 28px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45), 0 0 40px -10px var(--role-accent-soft);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transform-style: preserve-3d;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  overflow: hidden;
+}
+
+.vault-3d-card-inner:hover {
+  border-color: var(--role-accent);
+  box-shadow: 0 35px 70px -15px rgba(0, 0, 0, 0.6), 0 0 60px -5px var(--role-accent-soft);
+}
+
+.vault-card-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.02) 40%, transparent 80%);
+  pointer-events: none;
+  border-radius: 28px;
+  z-index: 2;
+}
+
+/* Shimmer Text */
+.landing-shimmer-text {
+  background: linear-gradient(90deg, #38bdf8 0%, #34d399 30%, #818cf8 60%, #38bdf8 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmerText 4s linear infinite;
+}
+
+/* Tech Stack Interactive Card */
+.tech-stack-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  padding: 1.5rem;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+}
+
+.tech-stack-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--role-accent);
+  box-shadow: 0 16px 36px -8px var(--role-accent-soft);
+}
+
+/* Interactive Escrow Simulator */
+.simulator-step-node {
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border-radius: 16px;
+  padding: 1rem;
+  border: 1px solid transparent;
+}
+
+.simulator-step-node.active {
+  background: var(--bg-card);
+  border-color: var(--role-accent);
+  box-shadow: 0 8px 24px -4px var(--role-accent-soft);
+}
+
+.simulator-step-node:hover:not(.active) {
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+}
+
+/* Keyframe Animations */
+@keyframes floatSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--role-accent-soft);
+  }
+  50% {
+    box-shadow: 0 0 28px 6px var(--role-accent-soft);
+  }
+}
+
+@keyframes auroraFlow {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(30px, -20px) scale(1.08);
+  }
+  100% {
+    transform: translate(-20px, 30px) scale(0.95);
+  }
+}
+
+@keyframes shimmerText {
+  0% {
+    background-position: 0% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+/* Accessible Reduced Motion Guard */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-glow-orb,
+  .landing-shimmer-text,
+  .vault-3d-card-wrapper,
+  .tech-stack-card {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(0, 214, 101, 0.3), 0 0 32px rgba(0, 214, 101, 0.15);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(0, 214, 101, 0.6), 0 0 48px rgba(0, 214, 101, 0.3);
+    transform: scale(1.04);
+  }
+}
+
+@keyframes neuralPulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes scanlineMove {
+  0% { top: 0%; opacity: 0; }
+  30% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+
+
+
+
+
+
+

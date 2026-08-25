@@ -14,6 +14,8 @@ export interface Milestone {
   index: number;
   percentage: number;
   proofUrl: string;
+  publicProofUrls?: string[];
+  adminProofUrls?: string[];
   votesApprove: number;
   votesReject: number;
   status: number; // 0 = PendingProof, 1 = PendingApproval, 2 = Approved, 3 = Rejected
@@ -29,6 +31,7 @@ export interface Project {
   currentPhase: number;
   status: number; // 0 = Active, 1 = Completed, 2 = Refunded
   milestones?: Milestone[];
+  contractId?: string;
   // Backwards compatibility / computed properties if needed
   mobilizationPct?: number;
   milestone1Proof?: string;
@@ -44,28 +47,63 @@ export interface ProjectPhase {
   amountXlm: number;
   description?: string;
   requiredProofs?: string;
+  targetDate?: string;
+  adminOnlyProofRequired?: boolean;
+  adminProofDescription?: string;
+  publicProofRequired?: boolean;
+}
+
+export interface ProposalRevisionEntry {
+  author: "admin" | "sk";
+  authorName: string;
+  authorRole?: string;
+  notes: string;
+  timestamp: string;
+  budgetXlm: number;
+  projectName?: string;
+  description?: string;
+  imageUrls?: string[];
+  phases?: ProjectPhase[];
+  lastEditedByName?: string;
+  lastEditedByRole?: string;
 }
 
 export interface ProjectProposal {
   id?: string;
   barangayId: string;
+  barangayName?: string;
   skOfficialUid: string;
   skOfficialAddress: string;
   skOfficialName: string;
   projectName: string;
   proposedBudgetXlm: number;
   approvedBudgetXlm?: number;
+  suggestedBudgetXlm?: number;
   proposedMobilizationPct?: number;
   approvedMobilizationPct?: number;
   phases?: ProjectPhase[];
+  suggestedPhases?: ProjectPhase[];
   description: string;
-  status: "pending_admin_approval" | "approved_onchain" | "rejected";
+  imageUrls?: string[];
+  status: "pending_admin_approval" | "revision_requested" | "approved_onchain" | "rejected";
   createdAt: string;
+  lastEditedAt?: string;
+  lastEditedBy?: string;
+  lastEditedByName?: string;
+  lastEditedByRole?: string;
+  lastEditedByUid?: string;
+  contractId?: string;
   reviewedByAdminUid?: string;
   onChainProjectId?: number;
   txHash?: string;
   phaseProofRequirements?: Record<string, string>;
   additionalProofs?: Record<string, string>;
+  publicProofUrls?: Record<string, string[]>;
+  adminProofUrls?: Record<string, string[]>;
+  phase1Policy?: "immediate" | "feasibility_vote";
+  adminRevisionNotes?: string;
+  skCounterNotes?: string;
+  revisionHistory?: ProposalRevisionEntry[];
 }
 
 export interface UserRoles {

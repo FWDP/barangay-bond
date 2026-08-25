@@ -443,10 +443,10 @@ service cloud.firestore {
     }
 
     // =============================================
-    // PROJECT PROPOSALS (Barangay Admin Approval Gate)
+    // PROJECT PROPOSALS (Barangay Admin Approval Gate & Public Explorer)
     // =============================================
     match /project_proposals/{proposalId} {
-      allow read, list: if isAuthenticated();
+      allow read, list: if true;
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
       allow delete: if isSystemAdmin();
@@ -460,5 +460,49 @@ service cloud.firestore {
       allow read, list: if isAuthenticated();
       allow update, delete: if isSystemAdmin();
     }
+
+    // =============================================
+    // NOTIFICATIONS
+    // =============================================
+    match /notifications/{notificationId} {
+      allow read, list: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // =============================================
+    // AUDIT LOGS
+    // =============================================
+    match /audit_logs/{logId} {
+      allow read, list: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // BARANGAYS
+    // =============================================
+    match /barangays/{barangayId} {
+      allow read, list: if true;
+      allow create, update, delete: if isSystemAdmin();
+    }
+
+    // =============================================
+    // SESSIONS
+    // =============================================
+    match /sessions/{sessionId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // =============================================
+    // BARANGAY ADMIN REQUESTS
+    // =============================================
+    match /barangay_admin_requests/{requestId} {
+      allow read, list: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isSystemAdmin();
+    }
   }
 }
+

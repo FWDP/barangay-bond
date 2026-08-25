@@ -51,11 +51,15 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ profile 
   }, [profile]);
 
   const handleMarkAsRead = async (id: string) => {
+    // Optimistic local state update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
     try {
       const docRef = doc(db, "notifications", id);
       await updateDoc(docRef, { read: true });
     } catch (err: any) {
-      console.error("Failed to mark notification as read:", err);
+      console.warn("[Notifications] Firestore sync notice:", err?.message || err);
     }
   };
 
@@ -117,7 +121,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ profile 
                     <div className="bank-ledger-right">
                       <button
                         type="button"
-                        className="btn btn-outline btn-sm"
+                        className="btn btn-outline btn-sm tap-scale"
                         onClick={() => handleMarkAsRead(n.id)}
                         style={{ height: "30px", fontSize: "0.72rem" }}
                       >
