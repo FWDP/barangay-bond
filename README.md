@@ -1,7 +1,7 @@
 # 🇵🇭 Barangay Bond
 
 > Milestone-Based Youth Governance & Civic Accountability Platform
-> Deployed on **Stellar Soroban Testnet** and powered by **Firebase** and **Google Gemini AI**.
+> Deployed on **Stellar Soroban Testnet** and powered by **Firebase** and **Google Gemini 2.5 AI**.
 
 ---
 
@@ -9,7 +9,7 @@
 [![Stellar Network](https://img.shields.io/badge/Stellar-Testnet-blue?style=for-the-badge&logo=stellar)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Smart_Contracts-black?style=for-the-badge)](https://stellar.org/soroban)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore-orange?style=for-the-badge&logo=firebase)](https://firebase.google.com)
-[![Gemini AI](https://img.shields.io/badge/Google-Gemini_AI-violet?style=for-the-badge&logo=google-gemini)](https://deepmind.google/technologies/gemini)
+[![Gemini AI](https://img.shields.io/badge/Google-Gemini_2.5_Flash-violet?style=for-the-badge&logo=google-gemini)](https://deepmind.google/technologies/gemini)
 [![Vite](https://img.shields.io/badge/Vite-Vite_8-blueviolet?style=for-the-badge&logo=vite)](https://vite.dev)
 [![React](https://img.shields.io/badge/React-React_19-blue?style=for-the-badge&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-TS_6-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org)
@@ -23,12 +23,13 @@
 - [Problem & Solution](#-problem--solution)
 - [Visual Interface Showcase](#-visual-interface-showcase)
 - [System Architecture](#-system-architecture)
-- [User Roles & Permissions](#-user-roles--permissions)
-- [User Journeys](#-user-journeys)
-- [AI Identity Verification Pipeline](#-ai-identity-verification-pipeline)
-- [Smart Contract Escrow Flow](#-smart-contract-escrow-flow)
+- [User Roles & Access Control Matrix](#-user-roles--access-control-matrix)
+- [Smart Contract Escrow Engine (Rust / Soroban)](#-smart-contract-escrow-engine-rust--soroban)
+- [Google Gemini 2.5 AI Dual-Telemetry Engine](#-google-gemini-25-ai-dual-telemetry-engine)
+- [Philippine Statutory & Legal Framework](#-philippine-statutory--legal-framework)
+- [User Journeys & Lifecycle Flows](#-user-journeys--lifecycle-flows)
 - [Firestore Collections Schema](#-firestore-collections-schema)
-- [Security Checklist](#-security-checklist)
+- [Security & Governance Safeguards](#-security--governance-safeguards)
 - [Tech Stack](#-tech-stack)
 - [Environment Variables](#-environment-variables)
 - [Local Setup & Installation](#-local-setup--installation)
@@ -40,22 +41,25 @@
 
 ## 🌟 Overview
 
-**Barangay Bond** is a decentralized platform built specifically for **Sangguniang Kabataan (SK)** youth governance in the Philippines. It bridges web-based identity verification and local trust structures with public blockchain networks. By pairing **Stellar Soroban smart contracts** with **Google Gemini Vision AI** and **Firebase**, Barangay Bond guarantees that public civic budgets are locked in auditable escrow agreements, releasing funds transparently only when verified local youth residents vote to approve project milestones.
+**Barangay Bond** is a decentralized civic banking platform built specifically for **Sangguniang Kabataan (SK)** youth governance and local community accountability in the Philippines. It bridges official local government administration and citizen verification with public blockchain trust networks. 
+
+By pairing **Stellar Soroban WASM smart contracts** with **Google Gemini 2.5 AI** and **Firebase Cloud Firestore**, Barangay Bond guarantees that municipal civic budgets are locked in tamper-proof escrow contracts. Funds are disbursed in multi-phase milestone tranches only when verified local youth residents review uploaded accomplishment proofs (site photos, receipts) and cast on-chain consensus votes.
 
 ---
 
 ## 🛑 Problem & Solution
 
 ### The Problem
-* **Centralized Discretion:** Local youth development funds are susceptible to delays, opaque accounting, and lack of direct resident consensus.
-* **Low Civic Engagement:** Youth residents lack simple, interactive channels to audit local projects, vote on fund releases, and track progress.
-* **Identity Spoofing & Sybil Risks:** Online voting and project registration are prone to fake profiles, duplicate accounts, and non-resident participation.
+* **Centralized Discretion & Ghost Projects:** Local youth development funds are susceptible to uncontrolled lump-sum releases, project abandonment, and opaque accounting without citizen oversight.
+* **Low Civic Engagement:** Youth residents lack simple, transparent channels to audit community initiatives, vote on fund releases, and inspect financial ledgers in real time.
+* **Identity Spoofing & Sybil Attacks:** Online voting and project registration are prone to duplicate accounts, fake credentials, and non-resident participation.
 
 ### The Solution
-* **Milestone-Based Escrows:** Budgets are locked on-chain in smart contracts. A 50% mobilization fund is released on launch, with the remaining 50% locked until residents verify proof of milestone completion.
-* **AI-Cross-Validated Identity:** Gemini AI analyzes government/student IDs against registration fields, matching initials, hyphenations, and title casing to catch fraud.
-* **Duplicate Identity Scanners:** Multi-factor fuzzy database checks compare names, birthdates, phone numbers, and IDs to block duplicate enrollments before admin review.
-* **On-Chain Audit Trails:** Every voter registration, project proposal, milestone proof, and fund release is logged immutably via contract events.
+* **Multi-Phase Smart Contract Escrows:** 100% of approved project budgets are locked on-chain in Soroban smart contracts. Funds are partitioned into milestone tranches (e.g. 40%-30%-30%) disbursed sequentially upon citizen consensus.
+* **Gemini 2.5 AI Proposal Telemetry:** Pre-audits project feasibility against Philippine Department of Trade and Industry (DTI) market rate indices to flag budget padding before escrow lock.
+* **AI OCR Document Verification:** Real-time visual analysis of Philippine government IDs (PhilSys, Postal ID, Driver's License, Voter's ID) with PSGC boundary matching to prevent duplicate registrations.
+* **Cryptographic e-OR Receipts:** Automated generation of print-ready electronic Official Receipts (e-ORs) compliant with R.A. 8792 for every on-chain tranche payout.
+* **Immutable Public Audit Trails:** Every voter registration, project proposal, milestone proof, and fund release is logged immutably on the Stellar blockchain explorer.
 
 ---
 
@@ -118,148 +122,198 @@
 | :---: | :---: |
 | ![Auth Sign In](docs/screenshots/auth-signin-portal.png) | ![Resident Registration](docs/screenshots/auth-resident-registration.png) |
 
+---
 
 ## 🏗️ System Architecture
 
-Barangay Bond implements a secure, modular architecture combining off-chain coordination (Firebase + Gemini AI) with on-chain trust (Stellar Soroban).
+Barangay Bond implements a modular architecture combining reactive off-chain data coordination (Firebase Firestore + Google Gemini AI) with decentralized cryptographic finality (Stellar Soroban).
 
 ```mermaid
 graph TD
-    Browser[Client Vite Web App] -->|1. Sign Up / Upload ID| FirebaseStorage[Firestore uploaded_documents]
+    Browser[Client Vite Web App] -->|1. Sign Up / Upload Gov ID| FirebaseStorage[Firestore uploaded_documents]
     Browser -->|2. Form Data / Base64 Profile| FirebaseAuth[Firebase Auth Credential]
-    FirebaseAuth -->|3. Trigger Hook| FirestoreDB[(Firestore Database)]
-    FirestoreDB -->|4. Retrieve Reference| GeminiAI[Gemini Identity Analyzer]
-    GeminiAI -->|5. Title Case/Fuzzy Match/OCR| Browser
-    Browser -->|6. Load Dashboard / Connect Wallet| SWK[StellarWalletsKit]
+    FirebaseAuth -->|3. Trigger Verification Hook| FirestoreDB[(Firestore Database)]
+    FirestoreDB -->|4. Retrieve Document Ref| GeminiAI[Google Gemini 2.5 Vision API]
+    GeminiAI -->|5. Title Case/Fuzzy OCR Match| Browser
+    Browser -->|6. In-App Keypair / SWK Link| SWK[StellarWalletsKit / Civic Vault]
     SWK -->|7. Sign Transaction Envelope| RPC[Stellar Testnet RPC Node]
-    RPC -->|8. Execute State Transition| Soroban[Soroban Smart Contract]
-    Soroban -->|9. Emit Events| EventPoll[Events Polling Service]
-    EventPoll -->|10. Feed Dashboard| Browser
+    RPC -->|8. Execute State Transition| Soroban[Soroban Smart Contract #707]
+    Soroban -->|9. Emit Events on State Change| EventPoll[Events Polling Service]
+    EventPoll -->|10. Feed Real-Time Dashboard| Browser
 ```
 
 ---
 
-## 👥 User Roles & Permissions
+## 👥 User Roles & Access Control Matrix
 
-The platform enforces a strict hierarchical access control matrix tailored to LGU boundaries:
+The platform enforces a hierarchical, role-based access control (RBAC) model aligned with Philippine Local Government Code boundaries:
 
 ```
-SYSTEM ADMIN ──► Approves Barangays & Barangay Admins, Suspends Barangay Admins
+SYSTEM ADMIN ──► Approves Barangays & Barangay Admins, Monitors System Audits
      │
-     └──► BARANGAY ADMIN ──► Verifies Resident IDs, Approves Residents, Assigns SK Officials
+     └──► BARANGAY ADMIN ──► Manages Treasury, Locks Escrow, Verifies KYC Queue
                │
-               ├──► SK OFFICIAL ──► Proposes Projects, Locks Escrow, Uploads Milestone Proof
+               ├──► SK OFFICIAL ──► Proposes Projects, Defines Tranches, Uploads Milestone Proof
                │
-               ├──► RESIDENT ──► Votes on Milestones, Audits Budgets, Views Transparency Portal
+               ├──► RESIDENT (YOUTH 15-30) ──► Votes on Milestones, Audits Proofs, Manages Civic Vault
                │
-               └──► VIEWER ──► Read-only observer of public transparency ledgers
+               └──► PUBLIC EXPLORER / VIEWER ──► Read-only inspection of ledgers & e-OR receipts
 ```
 
-### Roles Matrix
-* **System Admin:** Off-chain validator of platform boundary integrity. Configures active Barangays, reviews Barangay Admin credentials, and suspends malicious accounts.
-* **Barangay Admin:** Direct local moderator. Manages the verification queue, audits ID mismatches, and assigns active residents to official SK roles.
-* **SK Official:** Civic builder. Proposes local development projects, locks budgets into Soroban contracts, and submits photo/document proof for milestone reviews.
-* **Resident:** Local voter and auditor. Connects a Stellar wallet to vote on active milestone releases and audit ledger balances.
-* **Viewer:** Public auditor. Browse logs, budgets, and project completions read-only without requiring registration or wallet connection.
+### Roles Breakdown
+* **System Admin:** Platform supervisor. Verifies new LGU onboarding requests, audits cross-barangay telemetry, and manages root security configurations.
+* **Barangay Admin (Captain / Treasurer):** Executive treasury authority. Reviews Gemini AI proposal scores, locks 100% budget into Soroban escrow, and verifies resident KYC profiles.
+* **SK Official (Youth Council Lead):** Civic project builder. Drafts proposals, partitions budgets into multi-phase tranches, and uploads milestone completion proofs.
+* **Youth Resident (15–30 Years Old):** Democratic citizen auditor. Holds In-App Civic Keypair voting rights to approve or reject milestone proofs before funds can be released.
+* **Public Explorer (Guest):** Open-access auditor. Browses public project ledgers, inspects deliverable photos, and downloads official receipts without signing in.
 
 ---
 
-## 🗺️ User Journeys
+## 🔒 Smart Contract Escrow Engine (Rust / Soroban)
 
-### Guest & Resident Journey
+Budgets are guarded on-chain by the `barangay_bond` Soroban contract written in Rust and compiled to WebAssembly (WASM):
+
+```rust
+pub fn create_project(
+    env: Env,
+    admin: Address,
+    sk_official: Address,
+    name: String,
+    budget: i128,
+    description: String,
+    milestones: Vec<u32>,        // Custom percentage splits summing to 100%
+    immediate_phase_1: bool,     // Immediate Mobilization vs Public Feasibility Vote
+) -> u32;
+
+pub fn submit_milestone_proof(
+    env: Env,
+    sk_official: Address,
+    project_id: u32,
+    milestone_index: u32,
+    proof_url: String,
+);
+
+pub fn vote_milestone(
+    env: Env,
+    voter: Address,
+    project_id: u32,
+    milestone_index: u32,
+    approve: bool,
+);
 ```
-Guest ──► Sign Up ──► Base64 Compression ──► Duplicate Scan ──► Gemini OCR Match ──► Auto-Signout ──► Pending Queue ──► Barangay Admin Approves ──► Wallet Link ──► Active Resident ──► Vote on Milestone
-```
 
-### Sangguniang Kabataan (SK) Journey
-```
-Active Resident ──► Assigned SK Role ──► Wallet Connect ──► Propose Project ──► Lock Escrow (100% Budget) ──► Auto-Release Mobilization (50%) ──► Work Milestone ──► Upload Proof ──► Await Youth Vote ──► Release Escrow (50%)
-```
-
----
-
-## 🤖 AI Identity Verification Pipeline
-
-To bypass manual registration overhead, Barangay Bond uses **Gemini 2.5 Flash** to perform structured visual document verification:
-
-```mermaid
-graph TD
-    Upload[Upload ID Image] --> Canvas[Canvas Downscaler]
-    Canvas -->|100 KB Compressed JPEG| Base64[Base64 Encoded Image]
-    Base64 --> API[Gemini Vision API]
-    API --> Parse[Structured JSON Extraction]
-    Parse --> Fuzzy[Fuzzy Text Match Checker]
-    Fuzzy --> Decision{Weighted Score}
-    Decision -->|Score = 100%| AutoAccept[AUTO_APPROVE]
-    Decision -->|Score 95-99%| Pass[PASS]
-    Decision -->|Score 80-94%| Review[MANUAL_REVIEW Queue]
-    Decision -->|Score 60-79%| HighRisk[HIGH_RISK Alert]
-    Decision -->|Score < 60%| AutoReject[AUTO_REJECT Status]
-```
-
----
-
-## 🔒 Smart Contract Escrow Flow
-
-Budgets are guarded on-chain by the `barangay_bond` Soroban contract:
+### Key Contract Safeguards
+1. **Budget Integrity:** `milestones.iter().sum() == 100` is enforced at execution. Total project budget is transferred directly to the contract account.
+2. **Conflict of Interest Protection (R.A. 10742):** `voter != project.creator` — SK Officials cannot vote on their own project milestones.
+3. **Separation of Powers:** `voter != admin` — Barangay Admins are blocked from voting on citizen consensus quorums.
+4. **Tranche-Gated Payouts:** Funds for Phase $N$ are disbursed only when milestone approvals reach quorum consensus.
 
 ```mermaid
 sequenceDiagram
     participant SK as SK Official
+    participant BA as Barangay Admin
     participant SC as Soroban Smart Contract
     participant R as Verified Residents
-    participant E as Escrow Account
 
-    SK->>SC: propose_project(budget_amount)
-    Note over SK,SC: Locks 100% of Project Budget in Escrow
-    SC->>E: Lock Tokens
-    SC->>SK: release_mobilization(50% of budget)
-    Note over SK: Works on Milestone 1
-    SK->>SC: submit_milestone_proof(report_hash)
-    R->>SC: vote_approve_milestone(project_id)
-    Note over R,SC: Requires consensus from verified youth
-    SC->>SK: release_milestone_escrow(50% of budget)
+    SK->>BA: Submit Proposal (Multi-Tranche Division)
+    BA->>SC: create_project(100% Budget Escrow Lock)
+    SC->>SK: Disburse Phase 1 Mobilization (if enabled)
+    SK->>SC: submit_milestone_proof(Photos, Receipts)
+    R->>SC: vote_milestone(Approve / Reject)
+    Note over R,SC: Requires Consensus Quorum
+    SC->>SK: release_milestone_escrow(Phase N Payout)
+    SC-->>SK: Generate Electronic Official Receipt (e-OR)
+```
+
+---
+
+## 🤖 Google Gemini 2.5 AI Dual-Telemetry Engine
+
+Barangay Bond incorporates Google Gemini 2.5 Flash across two critical governance pipelines:
+
+```mermaid
+graph LR
+    subgraph "1. Proposal Risk & Cost Telemetry"
+        A[SK Proposal Submission] --> B[Gemini Budget Analyzer]
+        B --> C[DTI Municipal Index Check]
+        C --> D[Feasibility Score 0-100]
+        D --> E[Admin Escrow Recommendation]
+    end
+
+    subgraph "2. Multi-Modal Identity KYC"
+        F[Resident ID + Selfie] --> G[Canvas Client Downscaler]
+        G --> H[Gemini Vision OCR]
+        H --> I[PSGC Boundary Matching]
+        I --> J[Duplicate & Sybil Detection]
+    end
+```
+
+1. **Autonomous Proposal Auditor:** Analyzes itemized material costs, compares pricing with Philippine Department of Trade and Industry (DTI) indices, and assigns a scope feasibility rating.
+2. **Identity Verification & Anti-Sybil Pipeline:** Cross-validates government ID details against PSGC registered barangay boundaries and performs multi-factor fuzzy matching to block duplicate enrollments.
+
+---
+
+## 🇵🇭 Philippine Statutory & Legal Framework
+
+Barangay Bond is engineered to fulfill the requirements of three core Philippine Republic Acts:
+
+| Republic Act | Governance Statute | System Implementation |
+| :--- | :--- | :--- |
+| **R.A. 7160** | *Local Government Code of 1991* | Full public disclosure and open ledger inspection for all LGU disbursements. |
+| **R.A. 10742** | *Sangguniang Kabataan Reform Act of 2015* | Democratic youth quorum requirements and financial autonomy for youth councils. |
+| **R.A. 8792** | *Electronic Commerce Act of 2000* | Cryptographically signed electronic Official Receipts (e-ORs) with verifiable hashes. |
+
+---
+
+## 🗺️ User Journeys & Lifecycle Flows
+
+### 1. Youth Resident Registration & Voting Journey
+```
+Guest ──► Sign Up ──► PSGC LGU Select ──► Upload ID & Photo ──► Gemini OCR Match ──► Admin KYC Approval ──► In-App Keypair Generated ──► Active Citizen ──► Vote on Milestone Proofs
+```
+
+### 2. SK Official Proposal & Disbursement Journey
+```
+SK Official ──► Draft Proposal ──► 3-Tranche Breakdown ──► Gemini AI Telemetry ──► Barangay Admin Locks Escrow ──► Execute Milestone ──► Upload Site Photos/Receipts ──► Citizen Quorum Passed ──► Automatic Tranche Payout ──► Download e-OR PDF
 ```
 
 ---
 
 ## 📊 Firestore Collections Schema
 
-The platform organizes its off-chain profiles, verification requests, and transparency feeds in a normalized Firestore schema:
+The platform organizes its off-chain user profiles, verification queues, and audit feeds in a normalized Firestore structure:
 
-| Collection | Purpose | Security Rules |
+| Collection | Purpose | Access Control |
 | :--- | :--- | :--- |
-| `users` | Holds accounts data (names, roles, status, scores) | User can write own profile. Admins can read/modify. |
-| `barangay_admin_requests` | Holds pending admin applicants queue | Write on signup. Read/Update by System Admin only. |
-| `resident_verification_queue` | Holds resident applicants for ID reviews | Write on signup. Read/Update by Barangay Admin only. |
-| `barangays` | Master directory of approved local LGUs | System Admin creates/approves. Public read. |
-| `uploaded_documents` | Hosts Base64-compressed ID and selfie files | Write on signup and resubmission, including inactive-profile recovery resubmissions. Admins can read. No public read. |
-| `ai_verifications` | Logs detailed Gemini scorecards and reason codes | System Admin and Barangay Admin read-only. |
-| `projects` | Local development project status and metadata | SK Official writes. Public read. |
-| `milestones` | Milestones verification and proof logs | SK Official writes. Public read. |
-| `wallet_links` | Links Firestore UIDs to public Stellar keys | Owner writes. Public read to verify voter credentials. |
-| `audit_logs` | Immutable audit trial of all administration tasks | Written by system context. Admins can read. |
+| `users` | User profiles, roles (`resident`, `sk_official`, `barangay_admin`), and verification scores | Authenticated user write own; Admin read/update. |
+| `barangays` | Master directory of approved Philippine LGUs and PSGC codes | System Admin write; Public read. |
+| `resident_verification_queue` | Pending citizen applicants with Gemini OCR scorecards | Barangay Admin read/update. |
+| `project_proposals` | Itemized proposals, AI audit telemetry, and milestone specs | SK Official write; Admin review; Public read. |
+| `uploaded_documents` | Isolated Base64 government IDs and verification photos | Secure upload hook; Admin audit read-only. |
+| `audit_logs` | Immutable audit trial of all administrative and governance events | System-generated write; Admin read-only. |
+| `wallet_links` | Links Firestore UIDs to public Stellar account keys | Owner write; Public read to verify voting keys. |
 
 ---
 
-## 🛠️ Security Checklist
+## 🛠️ Security & Governance Safeguards
 
-* **Data Isolation:** All sensitive identity documents (Base64 images) are placed in `/uploaded_documents`, completely isolated from general user profiles to prevent data harvesting.
-* **Anti-Enumeration Rules:** Unauthenticated users cannot read or search the `users` collection. Duplicate scanning for guest signups is wrapped in safe client blocks and computed securely on the administrator panel.
-* **Role Verification Hooks:** Access states (`pending`, `suspended`, `inactive`) are evaluated synchronously on both `signIn` and `onAuthStateChanged` callbacks, preventing active session hijacks.
-* **Smart Contract Ownership:** Critical contract actions (`verify_resident`, `assign_sk`) require on-chain signatures matching the authorized Barangay Admin wallet address.
-* **Self-Verification Lock:** Barangay Admins are blocked from verifying their own profiles or altering their own roles via firestore rules.
+* **Data Isolation:** All sensitive identity documents (Base64 images) are housed in `/uploaded_documents`, completely isolated from general user profiles to prevent data harvesting.
+* **Anti-Enumeration Rules:** Unauthenticated users cannot read or search user collections. Duplicate scanning for signups is wrapped in safe client blocks and computed securely in administrator sessions.
+* **Session Verification Hooks:** Account statuses (`pending`, `suspended`, `inactive`) are evaluated synchronously on both `signIn` and `onAuthStateChanged` callbacks to prevent session hijacking.
+* **Dual Wallet Architecture:** Frictionless **In-App Civic Keypair Vault** for 1-click citizen transactions, with optional support for external hardware/software wallets (Freighter, Albedo, xBull).
 
 ---
 
 ## 💻 Tech Stack
 
 * **Frontend Framework:** React 19, TypeScript 6, Vite 8
-* **Styling Engine:** Vanilla CSS (Glassmorphism & Micro-animations)
-* **Off-Chain Backend:** Firebase (Auth, Firestore, Cloud Rules)
-* **AI Analysis:** Google Gemini 2.5 Flash API
-* **Blockchain Core:** Stellar Network, Soroban Smart Contracts (Rust)
-* **Wallet Kit:** `@creit-tech/stellar-wallets-kit` (Freighter / xBull integration)
+* **Styling Engine:** Vanilla CSS (Glassmorphic Specular Highlights & Micro-animations)
+* **Blockchain Core:** Stellar Network, Soroban Smart Contracts (Rust / WASM)
+* **Wallet Protocol:** In-App Civic Keypairs + `@creit-tech/stellar-wallets-kit`
+* **Off-Chain Backend:** Firebase (Authentication, Cloud Firestore, Security Rules)
+* **AI Telemetry:** Google Gemini 2.5 Flash Vision & Text APIs
+* **Receipt Engine:** jsPDF R.A. 8792 Electronic Official Receipt Generator
+* **Geographic Index:** Philippine Standard Geographic Code (PSGC) API
 
 ---
 
@@ -268,7 +322,7 @@ The platform organizes its off-chain profiles, verification requests, and transp
 Create a `.env` file at the root of the project to configure your API integrations:
 
 ```env
-# Gemini API Key (Identity document visual verification)
+# Gemini API Key (Identity OCR & Proposal Telemetry)
 VITE_GEMINI_API_KEY=AIzaSy...
 
 # Firebase Client Configuration
@@ -300,7 +354,7 @@ VITE_FIREBASE_MEASUREMENT_ID=G-874ELHD8J6
    ```
 
 2. **Initialize Environment Configuration:**
-   Create a `.env` file in the root directory and populate your Firebase client keys and Gemini API key.
+   Create a `.env` file in the root directory and populate your Firebase and Gemini API keys.
 
 3. **Install Frontend Dependencies:**
    ```bash
@@ -311,7 +365,7 @@ VITE_FIREBASE_MEASUREMENT_ID=G-874ELHD8J6
    ```bash
    npm run dev
    ```
-   *Navigate to `http://localhost:5173` to interact with the platform.*
+   *Open `http://localhost:5173` to launch the platform.*
 
 ---
 
@@ -322,31 +376,34 @@ barangay-bond/
 ├── contracts/                  # Soroban Smart Contract source code (Rust)
 │   └── contracts/barangay-bond/src/lib.rs
 ├── docs/                       # Project Documentation assets
-│   ├── screenshots/            # UI Polished Screens
-│   └── README-assets/          # Visual Diagrams
+│   ├── screenshots/            # UI Polished Screens (27 high-res captures)
+│   └── README-assets/          # Architecture Diagrams
 ├── src/                        # React Frontend Core
-│   ├── components/             # Reusable UI Panels & Modals
-│   ├── contexts/               # React Auth & State Providers
+│   ├── components/             # Reusable UI Panels, Modals, and Widgets
+│   ├── configuration/          # Stellar network & contract configurations
+│   ├── contexts/               # Auth, Wallet, and Theme state providers
 │   ├── events/                 # Stellar RPC event polling listeners
-│   ├── hooks/                  # Stellar contract react state hooks
+│   ├── hooks/                  # Contract state and telemetry hooks
+│   ├── repositories/           # Firestore data repositories
 │   ├── rpc/                    # Horizon transaction simulation client
-│   ├── services/               # Firebase & Gemini API integrations
+│   ├── services/               # Gemini AI & Firebase service integrations
 │   ├── transactions/           # Stellar keypair submit handlers
-│   ├── utils/                  # Input normalization & Image compressors
-│   └── types/                  # TypeScript interface specs
-└── firestore.rules             # Security access configurations
+│   ├── utils/                  # Currency formatting, PDF generator, and QR tools
+│   ├── views/                  # Main Landing, Auth, and Dashboard layouts
+│   └── types/                  # TypeScript interface specifications
+└── firestore.rules             # Granular database security rules
 ```
 
 ---
 
 ## 🗺️ Project Roadmap
 
-- [x] **Phase 1: Foundation Setup** — Web3 wallet integration, user roles logic, and layout routing.
-- [x] **Phase 2: On-Chain Escrow** — Deployed the `barangay_bond` Soroban contract for milestone payouts.
-- [x] **Phase 3: AI Document Auditing** — Built Gemini Vision visual document OCR and matching.
-- [x] **Phase 4: Security Hardening** — Implemented client-side compression, queue isolation, and status intercepts.
-- [ ] **Phase 5: Push Notifications** — Real-time SMS alerts for resident approvals.
-- [ ] **Phase 6: Multi-Barangay Expansion** — Full cross-boundary multi-tenant support for larger LGUs.
+- [x] **Phase 1: Foundation & Civic Identity** — In-App Civic Keypairs, role access control, and PSGC boundaries.
+- [x] **Phase 2: Multi-Phase Soroban Escrow** — Rust WASM contract with multi-tranche milestone payouts and conflict-of-interest guards.
+- [x] **Phase 3: Google Gemini 2.5 AI Telemetry** — Proposal scope/DTI pricing audits and visual document OCR verification.
+- [x] **Phase 4: Statutory Legal Compliance** — Automated cryptographic e-OR PDF generation under R.A. 8792.
+- [x] **Phase 5: High-End UI Modernization** — Luxury landing page, 3D holographic vault HUD, protocol simulator, and mobile-optimized resident dashboard.
+- [ ] **Phase 6: Multi-Barangay Scale** — Cross-boundary federation for city and municipal federations.
 
 ---
 
