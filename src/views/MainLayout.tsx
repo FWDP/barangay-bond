@@ -315,7 +315,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({
           <div className="bank-sidebar-user-capsule">
             <div className="bank-sidebar-user-top">
               <div className="bank-sidebar-avatar">
-                {profile?.name ? profile.name.charAt(0).toUpperCase() : "🇵🇭"}
+                {profile?.name ? profile.name.charAt(0).toUpperCase() : "B"}
               </div>
               <div className="bank-sidebar-user-meta">
                 <span className="bank-sidebar-user-name" title={profile?.name || "Guest Auditor"}>

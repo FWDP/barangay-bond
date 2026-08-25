@@ -24,6 +24,13 @@ import {
   ChevronDown,
   HelpCircle,
   X,
+  Scale,
+  Landmark,
+  ShieldCheck,
+  Building2,
+  Vote,
+  FileSpreadsheet,
+  Activity,
 } from "lucide-react";
 import { formatXlmToPhp } from "../utils/currency";
 import { STELLAR_CONFIG } from "../configuration/config";
@@ -60,8 +67,8 @@ const InteractiveCanvasBackground: React.FC = () => {
     window.addEventListener("resize", handleResize);
 
     const isMobile = width < 768;
-    const nodeCount = isMobile ? 45 : 95;
-    const maxDistance = isMobile ? 90 : 135;
+    const nodeCount = isMobile ? 40 : 85;
+    const maxDistance = isMobile ? 85 : 130;
 
     const mouse = { x: -1000, y: -1000, active: false };
 
@@ -81,9 +88,9 @@ const InteractiveCanvasBackground: React.FC = () => {
     const nodes = Array.from({ length: nodeCount }).map(() => ({
       x: Math.random() * width,
       y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.45,
-      vy: (Math.random() - 0.5) * 0.45,
-      radius: Math.random() * 1.8 + 0.8,
+      vx: (Math.random() - 0.5) * 0.35,
+      vy: (Math.random() - 0.5) * 0.35,
+      radius: Math.random() * 1.5 + 0.7,
     }));
 
     let isVisible = true;
@@ -112,16 +119,16 @@ const InteractiveCanvasBackground: React.FC = () => {
           const dx = mouse.x - node.x;
           const dy = mouse.y - node.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 160) {
-            const force = (160 - dist) / 160;
-            node.x += (dx / dist) * force * 0.75;
-            node.y += (dy / dist) * force * 0.75;
+          if (dist < 150) {
+            const force = (150 - dist) / 150;
+            node.x += (dx / dist) * force * 0.6;
+            node.y += (dy / dist) * force * 0.6;
           }
         }
 
         ctx.beginPath();
         ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(6, 182, 212, 0.45)";
+        ctx.fillStyle = "rgba(6, 182, 212, 0.35)";
         ctx.fill();
 
         for (let j = i + 1; j < nodes.length; j++) {
@@ -131,12 +138,12 @@ const InteractiveCanvasBackground: React.FC = () => {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < maxDistance) {
-            const alpha = (1 - dist / maxDistance) * 0.22;
+            const alpha = (1 - dist / maxDistance) * 0.18;
             ctx.beginPath();
             ctx.moveTo(node.x, node.y);
             ctx.lineTo(other.x, other.y);
             ctx.strokeStyle = `rgba(56, 189, 248, ${alpha})`;
-            ctx.lineWidth = 0.75;
+            ctx.lineWidth = 0.65;
             ctx.stroke();
           }
         }
@@ -178,10 +185,11 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
   const { theme, toggleTheme } = useTheme();
 
   const [approvedCount, setApprovedCount] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(0); // First open by default
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [faqSearch, setFaqSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [simulatorStep, setSimulatorStep] = useState<1 | 2 | 3 | 4>(1);
+  const [activeRolePreview, setActiveRolePreview] = useState<"resident" | "sk" | "admin" | "guest">("resident");
 
   // 3D Tilt Card state
   const [cardTilt, setCardTilt] = useState({ rotateX: 0, rotateY: 0 });
@@ -203,8 +211,8 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
     const rect = cardRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    const rotateX = -(y / (rect.height / 2)) * 8;
-    const rotateY = (x / (rect.width / 2)) * 8;
+    const rotateX = -(y / (rect.height / 2)) * 6;
+    const rotateY = (x / (rect.width / 2)) * 6;
     setCardTilt({ rotateX, rotateY });
   };
 
@@ -314,7 +322,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
     {
       category: "Legal & Receipts",
       q: "Can citizens inspect project ledgers without logging in or connecting a wallet?",
-      a: "Yes! Anyone can enter as a Public Explorer in Guest Mode. You can view all active and completed barangay projects, audit milestone photos, inspect disbursement amounts, and verify on-chain transaction hashes on the Stellar blockchain explorer.",
+      a: "Yes. Anyone can enter as a Public Explorer in Guest Mode. You can view all active and completed barangay projects, audit milestone photos, inspect disbursement amounts, and verify on-chain transaction hashes on the Stellar blockchain explorer.",
     },
     {
       category: "Legal & Receipts",
@@ -329,7 +337,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
     {
       category: "AI & Security",
       q: "How does Barangay Bond verify resident residency and prevent duplicate accounts?",
-      a: "During registration, residents submit their government ID (e.g., PhilSys National ID, Postal ID, Voter's ID, Driver's License) along with a verification photo. Our AI OCR pipeline cross-checks identity details against official Philippine Standard Geographic Code (PSGC) barangay boundaries and flags duplicate submissions.",
+      a: "During registration, residents submit their government ID (such as PhilSys National ID, Postal ID, Voter's ID, or Driver's License) along with a verification photo. Our AI OCR pipeline cross-checks identity details against official Philippine Standard Geographic Code (PSGC) barangay boundaries and flags duplicate submissions.",
     },
     {
       category: "Escrow & Budget",
@@ -368,7 +376,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
         overflowX: "hidden",
       }}
     >
-      {/* 1. Aurora Background Flowing Glows */}
+      {/* 1. Ambient Lighting Flowing Glows */}
       <div className="aurora-glow-container">
         <div className="aurora-glow-orb aurora-orb-1" />
         <div className="aurora-glow-orb aurora-orb-2" />
@@ -425,6 +433,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
                   background: "var(--role-accent-soft)",
                   padding: "0.15rem 0.5rem",
                   borderRadius: "9999px",
+                  letterSpacing: "0.04em",
                 }}
               >
                 STELLAR SOROBAN
@@ -474,21 +483,6 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
         }}
       >
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
-          {/* Logo Emblem Header */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "1.25rem" }}>
-            <img
-              src="/logo.png"
-              alt="Barangay Bond Emblem"
-              style={{
-                width: "84px",
-                height: "84px",
-                borderRadius: "22px",
-                objectFit: "contain",
-                filter: "drop-shadow(0 12px 32px rgba(6, 182, 212, 0.45))",
-              }}
-            />
-          </div>
-
           {/* Live Status Pill */}
           <div
             style={{
@@ -512,14 +506,14 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.74rem" }}>{STELLAR_CONFIG.network.toUpperCase()}</span>
           </div>
 
-          {/* Headline */}
+          {/* Display Headline */}
           <h1
             style={{
               fontSize: "clamp(2.4rem, 6.5vw, 4.5rem)",
               fontWeight: 900,
               lineHeight: 1.1,
               letterSpacing: "-0.035em",
-              maxWidth: "880px",
+              maxWidth: "900px",
               margin: "0 0 1.25rem 0",
             }}
           >
@@ -527,18 +521,66 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             <span className="landing-shimmer-text">Zero Ghost Projects.</span>
           </h1>
 
-          {/* Subtitle in Plain, Common English */}
+          {/* Subtitle in Clean Common English */}
           <p
             style={{
-              fontSize: "clamp(1rem, 2vw, 1.25rem)",
+              fontSize: "clamp(1rem, 2vw, 1.22rem)",
               color: "var(--text-secondary)",
               maxWidth: "720px",
               lineHeight: 1.6,
-              margin: "0 0 2.25rem 0",
+              margin: "0 0 2rem 0",
             }}
           >
             Empowering Philippine Sangguniang Kabataan and Barangay Captains with multi-phase smart contract escrows, autonomous AI risk auditing, and verified community resident voting.
           </p>
+
+          {/* Interactive Role Gateway Selector */}
+          <div className="role-selector-bar">
+            {[
+              { key: "resident", label: "Youth Resident (15-30)", icon: Users, desc: "Vote on project deliverables & inspect public ledgers." },
+              { key: "sk", label: "SK Official", icon: FileSpreadsheet, desc: "Create milestone proposals & submit proof of accomplishment." },
+              { key: "admin", label: "Barangay Captain", icon: Building2, desc: "Lock project budgets into Soroban escrow contracts." },
+              { key: "guest", label: "Public Auditor", icon: ShieldCheck, desc: "Explore open-access public ledgers & PDF receipts." },
+            ].map((role) => {
+              const Icon = role.icon;
+              const isActive = activeRolePreview === role.key;
+              return (
+                <button
+                  key={role.key}
+                  className={`role-selector-chip ${isActive ? "active" : ""}`}
+                  onClick={() => setActiveRolePreview(role.key as any)}
+                >
+                  <Icon size={14} />
+                  <span>{role.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Role Preview Banner */}
+          <div
+            style={{
+              maxWidth: "680px",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "14px",
+              padding: "0.75rem 1.25rem",
+              fontSize: "0.86rem",
+              color: "var(--text-secondary)",
+              marginBottom: "2.25rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.65rem",
+            }}
+          >
+            <Activity size={16} style={{ color: "var(--role-accent)", flexShrink: 0 }} />
+            <span>
+              {activeRolePreview === "resident" && "Residents cast cryptographic on-chain votes to approve or reject milestone releases."}
+              {activeRolePreview === "sk" && "SK Officials submit proposals, define milestone tranches, and upload completion proof."}
+              {activeRolePreview === "admin" && "Barangay Captains verify Gemini AI risk audits and lock funds into tamper-proof escrows."}
+              {activeRolePreview === "guest" && "Anyone can inspect verified transactions and download official receipts without signing in."}
+            </span>
+          </div>
 
           {/* Dual CTAs */}
           <div style={{ display: "flex", gap: "0.9rem", flexWrap: "wrap", justifyContent: "center", marginBottom: "3.5rem" }}>
@@ -609,7 +651,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
               </div>
 
               <span className="badge badge-success" style={{ padding: "0.35rem 0.85rem", fontSize: "0.76rem" }}>
-                ● 100% Cryptographically Secured
+                100% Cryptographically Secured
               </span>
             </div>
 
@@ -648,7 +690,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
 
             {/* Interactive Footer Callout */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--text-muted)", flexWrap: "wrap", gap: "0.5rem" }}>
-              <span>💡 Tilt or move your cursor over the card for a 3D perspective</span>
+              <span>Move cursor over card for 3D holographic perspective</span>
               <span style={{ color: "var(--accent-blue)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                 Click to inspect live ledger <ExternalLink size={13} />
               </span>
@@ -658,7 +700,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
       </section>
 
       {/* =========================================================================
-          5. PLAYABLE 4-STEP SMART CONTRACT ESCROW SIMULATOR
+          5. PLAYABLE 4-STEP SMART CONTRACT ESCROW PROTOCOL ENGINE
           ========================================================================= */}
       <section
         style={{
@@ -671,13 +713,13 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
       >
         <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
           <span style={{ fontSize: "0.78rem", fontWeight: 800, color: "var(--role-accent)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Interactive Architecture
+            Protocol Engine Architecture
           </span>
           <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", fontWeight: 900, color: "var(--text-primary)", marginTop: "0.25rem" }}>
             How a Civic Escrow Works in 4 Steps
           </h2>
           <p style={{ color: "var(--text-secondary)", maxWidth: "620px", margin: "0.5rem auto 0 auto", fontSize: "0.95rem" }}>
-            Click on any step below to simulate how smart contracts guarantee accountability from proposal to official receipt.
+            Click on any phase below to simulate how smart contracts guarantee accountability from proposal to official receipt.
           </p>
         </div>
 
@@ -690,7 +732,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
         </div>
 
         {/* 4 Step Selector Nodes */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem", marginBottom: "1.75rem" }}>
+        <div className="protocol-step-grid">
           {[
             {
               num: 1,
@@ -722,25 +764,12 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             return (
               <div
                 key={s.num}
-                className={`simulator-step-node ${isActive ? "active" : ""}`}
+                className={`protocol-node-card ${isActive ? "active" : ""}`}
                 onClick={() => setSimulatorStep(s.num as 1 | 2 | 3 | 4)}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.4rem" }}>
-                  <div
-                    style={{
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "8px",
-                      background: isActive ? "var(--role-accent)" : "var(--bg-elevated)",
-                      color: isActive ? "#ffffff" : "var(--text-secondary)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 800,
-                      transition: "all 0.2s ease",
-                    }}
-                  >
-                    <Icon size={16} />
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <div className="protocol-node-indicator">
+                    <Icon size={14} />
                   </div>
                   <strong style={{ fontSize: "0.92rem", color: isActive ? "var(--role-accent)" : "var(--text-primary)" }}>
                     {s.title}
@@ -754,24 +783,15 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
           })}
         </div>
 
-        {/* Live Simulator Preview Display */}
-        <div
-          className="bank-card"
-          style={{
-            padding: "2rem",
-            border: "1px solid var(--border-primary)",
-            background: "var(--bg-card)",
-            borderRadius: "24px",
-            boxShadow: "var(--shadow-floating)",
-          }}
-        >
+        {/* Live Protocol Simulator Terminal */}
+        <div className="protocol-engine-terminal">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
               <span className="badge badge-info" style={{ fontSize: "0.75rem" }}>
                 Simulation State: Step {simulatorStep} of 4
               </span>
               <strong style={{ fontSize: "1rem", color: "var(--text-primary)" }}>
-                {simulatorStep === 1 && "SK Official Submits Basketball Court Lighting Repair (₱50,000 / 1,000 XLM)"}
+                {simulatorStep === 1 && "SK Official Submits Basketball Court Lighting Repair (50,000 PHP / 1,000 XLM)"}
                 {simulatorStep === 2 && "Barangay Admin Locks 1,000 XLM into Contract #707 Escrow"}
                 {simulatorStep === 3 && "Youth Residents Review Proof of Materials & Cast Cryptographic Votes"}
                 {simulatorStep === 4 && "Soroban Contract Disburses 400 XLM Tranche + Issues Official Receipt"}
@@ -793,10 +813,10 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             {simulatorStep === 1 && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--accent-purple)", fontWeight: 800 }}>
-                  <Sparkles size={16} /> Gemini 2.5 AI Audit Result:
+                  <Sparkles size={16} /> Gemini 2.5 AI Audit Telemetry:
                 </div>
                 <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  ✓ <strong>Feasibility Score: 94/100 (Optimal)</strong> • LED Floodlight unit prices align with DTI municipal price indices. 3-phase milestone division approved.
+                  <span style={{ color: "#10b981", fontWeight: 700 }}>Feasibility Score: 94/100 (Optimal)</span> • LED Floodlight unit prices align with DTI municipal price indices. 3-phase milestone division approved.
                 </div>
               </div>
             )}
@@ -807,7 +827,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
                   <Lock size={16} /> Soroban Escrow Lock Verified:
                 </div>
                 <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  ✓ <strong>1,000 XLM Transferred to Contract Escrow</strong> • Funds cannot be withdrawn or diverted without citizen quorum consensus.
+                  <span style={{ color: "var(--role-accent)", fontWeight: 700 }}>1,000 XLM Transferred to Contract Escrow</span> • Funds cannot be withdrawn or diverted without citizen quorum consensus.
                 </div>
               </div>
             )}
@@ -818,7 +838,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
                   <Users size={16} /> Community Consensus Meter:
                 </div>
                 <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  👍 <strong>2 Verified Resident Approvals Cast</strong> • Quorum met! On-chain trigger ready to release Phase 1 mobilization.
+                  <span style={{ color: "#10b981", fontWeight: 700 }}>2 Verified Resident Approvals Cast</span> • Quorum met. On-chain trigger ready to release Phase 1 mobilization.
                 </div>
               </div>
             )}
@@ -829,7 +849,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
                   <CheckCircle2 size={16} /> Automatic Milestone Payout Complete:
                 </div>
                 <div style={{ fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.55 }}>
-                  ✓ <strong>400 XLM Transferred to SK Official Wallet</strong> • Electronic Official Receipt <code>BGY-OR-707A</code> generated and permanently audit-linked.
+                  <span style={{ color: "#10b981", fontWeight: 700 }}>400 XLM Transferred to SK Official Wallet</span> • Electronic Official Receipt <code>BGY-OR-707A</code> generated and permanently audit-linked.
                 </div>
               </div>
             )}
@@ -1016,25 +1036,61 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            gap: "1.25rem",
+            gap: "1.5rem",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <span style={{ fontSize: "2rem" }}>🇵🇭</span>
+            <div
+              style={{
+                width: "42px",
+                height: "42px",
+                borderRadius: "12px",
+                background: "var(--role-accent-soft)",
+                color: "var(--role-accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Landmark size={22} />
+            </div>
             <h3 style={{ fontSize: "1.45rem", fontWeight: 900, color: "var(--text-primary)", margin: 0 }}>
-              Full Compliance with Philippine Republic Acts
+              Statutory Compliance with Philippine Governance Acts
             </h3>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "1rem", maxWidth: "800px" }}>
-            <div style={{ background: "var(--bg-card)", padding: "0.85rem 1.25rem", borderRadius: "14px", border: "1px solid var(--border-subtle)", fontSize: "0.85rem", fontWeight: 700 }}>
-              ⚖️ <strong>R.A. 7160:</strong> Local Government Code of 1991 (Public Transparency)
+          <div className="legal-statute-grid">
+            <div className="legal-statute-card">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Scale size={18} style={{ color: "var(--role-accent)" }} />
+                <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)" }}>Republic Act 7160</strong>
+              </div>
+              <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--role-accent)" }}>Local Government Code of 1991</div>
+              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                Enforces public disclosure, fiscal transparency, and community accountability in local government unit expenditures.
+              </p>
             </div>
-            <div style={{ background: "var(--bg-card)", padding: "0.85rem 1.25rem", borderRadius: "14px", border: "1px solid var(--border-subtle)", fontSize: "0.85rem", fontWeight: 700 }}>
-              📜 <strong>R.A. 10742:</strong> Sangguniang Kabataan Reform Act
+
+            <div className="legal-statute-card">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Vote size={18} style={{ color: "var(--role-accent)" }} />
+                <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)" }}>Republic Act 10742</strong>
+              </div>
+              <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--role-accent)" }}>Sangguniang Kabataan Reform Act</div>
+              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                Provides financial autonomy to youth councils while mandating democratic quorum approvals for youth fund allocations.
+              </p>
             </div>
-            <div style={{ background: "var(--bg-card)", padding: "0.85rem 1.25rem", borderRadius: "14px", border: "1px solid var(--border-subtle)", fontSize: "0.85rem", fontWeight: 700 }}>
-              🧾 <strong>R.A. 8792:</strong> Electronic Commerce Act (Digital e-ORs)
+
+            <div className="legal-statute-card">
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <FileCheck size={18} style={{ color: "var(--role-accent)" }} />
+                <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)" }}>Republic Act 8792</strong>
+              </div>
+              <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--role-accent)" }}>Electronic Commerce Act</div>
+              <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                Recognizes electronic signatures, cryptographically verifiable PDF e-ORs, and digital records as legally binding documents.
+              </p>
             </div>
           </div>
         </div>
@@ -1069,7 +1125,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             <input
               type="text"
               className="form-control"
-              placeholder="Search questions (e.g., escrow, quorum, Gemini, receipts)..."
+              placeholder="Search questions (e.g. escrow, quorum, Gemini, receipts)..."
               value={faqSearch}
               onChange={(e) => setFaqSearch(e.target.value)}
               style={{

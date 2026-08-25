@@ -21,6 +21,7 @@
 
 - [Overview](#-overview)
 - [Problem & Solution](#-problem--solution)
+- [Visual Interface Showcase](#-visual-interface-showcase)
 - [System Architecture](#-system-architecture)
 - [User Roles & Permissions](#-user-roles--permissions)
 - [User Journeys](#-user-journeys)
@@ -57,6 +58,66 @@
 * **On-Chain Audit Trails:** Every voter registration, project proposal, milestone proof, and fund release is logged immutably via contract events.
 
 ---
+
+## 📸 Visual Interface Showcase
+
+### 1. Decentralized Landing Experience & Protocol Architecture
+| Landing Page (Dark Mode) | 3D Holographic Vault Parallax HUD |
+| :---: | :---: |
+| ![Landing Hero](docs/screenshots/landing-hero-dark.png) | ![Vault HUD](docs/screenshots/landing-3d-vault-hud.png) |
+
+| Interactive Protocol Engine (4-Phase Escrow) | 7-Stack Technology Architecture Grid |
+| :---: | :---: |
+| ![Protocol Engine](docs/screenshots/landing-protocol-simulator.png) | ![Tech Grid](docs/screenshots/landing-tech-architecture.png) |
+
+| Philippine Statutory Compliance (R.A. 7160, 10742, 8792) | 12-Item Searchable System FAQ |
+| :---: | :---: |
+| ![Legal Matrix](docs/screenshots/landing-legal-compliance.png) | ![FAQ Accordion](docs/screenshots/landing-faq-accordion.png) |
+
+---
+
+### 2. Barangay Admin Governance & KYC Verification Desk
+| Admin Treasury Overview & Escrow Vault | Resident KYC Verification Queue (AI Match Scoring) |
+| :---: | :---: |
+| ![Admin Treasury Desk](docs/screenshots/admin-panel-treasury.png) | ![Admin KYC Queue](docs/screenshots/admin-kyc-queue.png) |
+
+| Admin Dashboard Overview & Live Telemetry | Resident ID Inspection & Validation Modal |
+| :---: | :---: |
+| ![Admin Overview](docs/screenshots/admin-dashboard-overview.png) | ![KYC ID Inspection](docs/screenshots/admin-kyc-inspect-modal.png) |
+
+---
+
+### 3. Sangguniang Kabataan (SK) Studio & Proposal Creator
+| SK Studio Workspace | 3-Tranche Milestone Division Editor |
+| :---: | :---: |
+| ![SK Studio](docs/screenshots/sk-studio-workspace.png) | ![Proposal Editor](docs/screenshots/sk-proposal-editor.png) |
+
+| SK Projects Management | SK Official Financial Dashboard |
+| :---: | :---: |
+| ![SK Projects](docs/screenshots/sk-projects-view.png) | ![SK Dashboard](docs/screenshots/sk-dashboard-overview.png) |
+
+---
+
+### 4. Youth Resident Mobile Experience & Citizen Quorum Voting
+| Resident Mobile Dashboard & Civic Keypair | Mobile Projects & Deliverables View |
+| :---: | :---: |
+| ![Mobile Dashboard](docs/screenshots/resident-mobile-dashboard.png) | ![Mobile Projects](docs/screenshots/resident-mobile-projects-voting.png) |
+
+| Citizen Milestone Voting & Proof Modal | Mobile Activity & Immutable Ledger |
+| :---: | :---: |
+| ![Mobile Voting Modal](docs/screenshots/resident-mobile-voting-modal.png) | ![Mobile Activity](docs/screenshots/resident-mobile-activity.png) |
+
+---
+
+### 5. Public Civic Explorer & Resident Onboarding
+| Public Ledger Feed (Guest Explorer Mode) | Active Project Milestones & Deliverables Modal |
+| :---: | :---: |
+| ![Public Explorer](docs/screenshots/public-explorer-dashboard.png) | ![Milestones Deliverables](docs/screenshots/project-milestones-deliverables.png) |
+
+| Civic Auth Sign-In Portal | 4-Step Resident Registration & PSGC Selector |
+| :---: | :---: |
+| ![Auth Sign In](docs/screenshots/auth-signin-portal.png) | ![Resident Registration](docs/screenshots/auth-resident-registration.png) |
+
 
 ## 🏗️ System Architecture
 
