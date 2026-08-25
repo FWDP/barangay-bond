@@ -22,6 +22,8 @@ import {
   ChevronRight,
   Search,
   ChevronDown,
+  HelpCircle,
+  X,
 } from "lucide-react";
 import { formatXlmToPhp } from "../utils/currency";
 import { STELLAR_CONFIG } from "../configuration/config";
@@ -34,7 +36,7 @@ interface LandingPageProps {
 }
 
 /* =========================================================================
-   1. COMPONENT: INTERACTIVE 3D PARTICLE MESH BACKGROUND
+   1. INTERACTIVE 3D PARTICLE MESH BACKGROUND
    ========================================================================= */
 const InteractiveCanvasBackground: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -176,8 +178,9 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
   const { theme, toggleTheme } = useTheme();
 
   const [approvedCount, setApprovedCount] = useState(0);
-  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(0); // First open by default
   const [faqSearch, setFaqSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [simulatorStep, setSimulatorStep] = useState<1 | 2 | 3 | 4>(1);
 
   // 3D Tilt Card state
@@ -279,31 +282,80 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
     },
   ];
 
-  // FAQ Items
+  // 12 Comprehensive System FAQs
+  const faqCategories = ["All", "Escrow & Budget", "Voting & Governance", "AI & Security", "Legal & Receipts"];
+
   const faqItems = [
     {
+      category: "Escrow & Budget",
       q: "How does Barangay Bond eliminate Ghost Projects?",
-      a: "No funds are ever released as an uncontrolled lump sum. Budgets are locked in on-chain Soroban escrow contracts. Phase 1 mobilization requires either immediate or public feasibility authorization, while subsequent tranches are only disbursed after SK officials upload deliverable proof and 2 verified resident votes reach quorum.",
+      a: "No funds are ever released as an uncontrolled lump sum. Project budgets are locked 100% inside on-chain Stellar Soroban smart contract escrows. Funds are divided into sequential milestone tranches. Subsequent tranches are disbursed only after SK officials upload completion proof and at least 2 verified resident votes reach consensus.",
     },
     {
-      q: "Who can participate in community voting?",
-      a: "All verified youth residents (ages 15-30) who belong to the registered Barangay can cast cryptographic votes to approve or reject milestone proofs. Each citizen vote is signed on-chain.",
+      category: "Voting & Governance",
+      q: "Who is eligible to vote on community project milestones?",
+      a: "All verified youth residents (ages 15 to 30) who belong to the registered Barangay can cast cryptographic votes to approve or reject milestone proofs. Each citizen vote is signed on-chain and permanently recorded on the public ledger.",
     },
     {
-      q: "What role does Google Gemini AI play?",
-      a: "The Gemini AI Advisor analyzes submitted project proposals against real-world Philippine municipal market rates. It detects overbudgeted materials, checks deliverable timelines, and provides actionable recommendations to the Barangay Captain before escrow approval.",
+      category: "AI & Security",
+      q: "What role does Google Gemini 2.5 AI play in project approvals?",
+      a: "The Gemini AI Auditor analyzes submitted project proposals against real-world Philippine Department of Trade and Industry (DTI) market rates. It detects overbudgeted materials, checks timeline feasibility, and provides actionable recommendations to the Barangay Captain before escrow approval.",
     },
     {
-      q: "Is Barangay Bond compliant with Philippine Law?",
-      a: "Yes. Barangay Bond is engineered to fulfill the transparency requirements of R.A. 7160 (Local Government Code of 1991), R.A. 10742 (Sangguniang Kabataan Reform Act), and the electronic document standards of R.A. 8792.",
+      category: "Voting & Governance",
+      q: "What happens if a milestone fails the community quorum vote?",
+      a: "If residents identify missing deliverables or unsatisfactory work and reject the proof, the smart contract prevents tranche release. The SK Official receives itemized citizen feedback, makes required revisions or on-site corrections, and resubmits the deliverable for a new community vote.",
+    },
+    {
+      category: "Escrow & Budget",
+      q: "How do Barangay Captains (LGU Admin) approve and lock funds?",
+      a: "Barangay Captains review proposal details and AI recommendations in their Admin Treasury. Upon approval, they initiate a single Soroban escrow transaction that locks the total approved budget. From that moment, funds can only be unlocked through verified milestone completion.",
+    },
+    {
+      category: "Legal & Receipts",
+      q: "Can citizens inspect project ledgers without logging in or connecting a wallet?",
+      a: "Yes! Anyone can enter as a Public Explorer in Guest Mode. You can view all active and completed barangay projects, audit milestone photos, inspect disbursement amounts, and verify on-chain transaction hashes on the Stellar blockchain explorer.",
+    },
+    {
+      category: "Legal & Receipts",
+      q: "How are electronic Official Receipts (e-ORs) generated and verified?",
+      a: "Whenever a milestone payout is disbursed, the system automatically generates an electronic Official Receipt (e-OR) PDF compliant with the Philippine Electronic Commerce Act (R.A. 8792). It includes the project title, payee SK Official, amount in PHP and XLM, timestamp, and verifiable blockchain transaction hash.",
+    },
+    {
+      category: "AI & Security",
+      q: "How does the In-App Civic Keypair Vault work compared to external wallets?",
+      a: "Barangay Bond provides a seamless In-App Civic Keypair Vault so users can sign transactions and cast votes in 1 click without needing third-party browser extensions. Advanced users and officials can also connect external hardware or software wallets such as Freighter, Albedo, or xBull.",
+    },
+    {
+      category: "AI & Security",
+      q: "How does Barangay Bond verify resident residency and prevent duplicate accounts?",
+      a: "During registration, residents submit their government ID (e.g., PhilSys National ID, Postal ID, Voter's ID, Driver's License) along with a verification photo. Our AI OCR pipeline cross-checks identity details against official Philippine Standard Geographic Code (PSGC) barangay boundaries and flags duplicate submissions.",
+    },
+    {
+      category: "Escrow & Budget",
+      q: "What are the standard milestone phases for a civic project?",
+      a: "Projects are typically structured into 3 distinct phases: Phase 1 (Mobilization & Initial Materials), Phase 2 (Mid-Phase Construction or Execution), and Phase 3 (Final Inspection & Turnover). Each phase requires documented evidence and community voting before payout.",
+    },
+    {
+      category: "Legal & Receipts",
+      q: "Is Barangay Bond compliant with Philippine Law and Governance Acts?",
+      a: "Yes. Barangay Bond is designed to fulfill the transparency requirements of R.A. 7160 (Local Government Code of 1991), R.A. 10742 (Sangguniang Kabataan Reform Act of 2015), and R.A. 8792 (Electronic Commerce Act).",
+    },
+    {
+      category: "Escrow & Budget",
+      q: "What happens to remaining funds if a project completes under budget or is canceled?",
+      a: "Any unreleased funds locked in the smart contract escrow remain secure. If a project is canceled or finishes below the estimated ceiling, the remaining balance is refunded directly to the Barangay treasury vault on-chain.",
     },
   ];
 
-  const filteredFaqs = faqItems.filter(
-    (item) =>
+  const filteredFaqs = faqItems.filter((item) => {
+    const matchesCategory = selectedCategory === "All" || item.category === selectedCategory;
+    const matchesSearch =
       item.q.toLowerCase().includes(faqSearch.toLowerCase()) ||
-      item.a.toLowerCase().includes(faqSearch.toLowerCase())
-  );
+      item.a.toLowerCase().includes(faqSearch.toLowerCase()) ||
+      item.category.toLowerCase().includes(faqSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div
@@ -442,7 +494,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "0.5rem",
+              gap: "0.6rem",
               background: "var(--role-accent-soft)",
               border: "1px solid var(--role-accent-border)",
               borderRadius: "9999px",
@@ -454,7 +506,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
               boxShadow: "0 0 24px var(--role-accent-soft)",
             }}
           >
-            <span className="pulse-beacon" style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#10b981", display: "inline-block" }} />
+            <span className="ripple-beacon-dot" />
             <span>Stellar Soroban Main Vault Live</span>
             <span style={{ opacity: 0.5 }}>•</span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.74rem" }}>{STELLAR_CONFIG.network.toUpperCase()}</span>
@@ -475,17 +527,17 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             <span className="landing-shimmer-text">Zero Ghost Projects.</span>
           </h1>
 
-          {/* Subtitle */}
+          {/* Subtitle in Plain, Common English */}
           <p
             style={{
               fontSize: "clamp(1rem, 2vw, 1.25rem)",
               color: "var(--text-secondary)",
-              maxWidth: "700px",
+              maxWidth: "720px",
               lineHeight: 1.6,
               margin: "0 0 2.25rem 0",
             }}
           >
-            Empowering Philippine Sangguniang Kabataan and Barangay Captains with multi-phase smart contract escrows, autonomous AI risk auditing, and verified citizen voting.
+            Empowering Philippine Sangguniang Kabataan and Barangay Captains with multi-phase smart contract escrows, autonomous AI risk auditing, and verified community resident voting.
           </p>
 
           {/* Dual CTAs */}
@@ -595,8 +647,8 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             </div>
 
             {/* Interactive Footer Callout */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--text-muted)" }}>
-              <span>💡 Tilt or hover card for 3D holographic perspective</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--text-muted)", flexWrap: "wrap", gap: "0.5rem" }}>
+              <span>💡 Tilt or move your cursor over the card for a 3D perspective</span>
               <span style={{ color: "var(--accent-blue)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
                 Click to inspect live ledger <ExternalLink size={13} />
               </span>
@@ -624,9 +676,17 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
           <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", fontWeight: 900, color: "var(--text-primary)", marginTop: "0.25rem" }}>
             How a Civic Escrow Works in 4 Steps
           </h2>
-          <p style={{ color: "var(--text-secondary)", maxWidth: "600px", margin: "0.5rem auto 0 auto", fontSize: "0.95rem" }}>
-            Click on any step below to simulate how Soroban smart contracts guarantee accountability at every phase.
+          <p style={{ color: "var(--text-secondary)", maxWidth: "620px", margin: "0.5rem auto 0 auto", fontSize: "0.95rem" }}>
+            Click on any step below to simulate how smart contracts guarantee accountability from proposal to official receipt.
           </p>
+        </div>
+
+        {/* Simulator Progress Bar */}
+        <div className="simulator-progress-track">
+          <div
+            className="simulator-progress-fill"
+            style={{ width: `${(simulatorStep / 4) * 100}%` }}
+          />
         </div>
 
         {/* 4 Step Selector Nodes */}
@@ -663,7 +723,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
               <div
                 key={s.num}
                 className={`simulator-step-node ${isActive ? "active" : ""}`}
-                onClick={() => setSimulatorStep(s.num as any)}
+                onClick={() => setSimulatorStep(s.num as 1 | 2 | 3 | 4)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.4rem" }}>
                   <div
@@ -677,6 +737,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: 800,
+                      transition: "all 0.2s ease",
                     }}
                   >
                     <Icon size={16} />
@@ -705,11 +766,11 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
               <span className="badge badge-info" style={{ fontSize: "0.75rem" }}>
                 Simulation State: Step {simulatorStep} of 4
               </span>
-              <strong style={{ fontSize: "1.05rem", color: "var(--text-primary)" }}>
+              <strong style={{ fontSize: "1rem", color: "var(--text-primary)" }}>
                 {simulatorStep === 1 && "SK Official Submits Basketball Court Lighting Repair (₱50,000 / 1,000 XLM)"}
                 {simulatorStep === 2 && "Barangay Admin Locks 1,000 XLM into Contract #707 Escrow"}
                 {simulatorStep === 3 && "Youth Residents Review Proof of Materials & Cast Cryptographic Votes"}
@@ -719,10 +780,10 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
 
             <button
               className="btn btn-sm btn-primary tap-scale"
-              onClick={() => setSimulatorStep((prev) => (prev < 4 ? ((prev + 1) as any) : 1))}
+              onClick={() => setSimulatorStep((prev) => (prev < 4 ? ((prev + 1) as 1 | 2 | 3 | 4) : 1))}
               style={{ fontWeight: 800, display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
             >
-              <span>{simulatorStep === 4 ? "Restart Flow" : "Advance Step"}</span>
+              <span>{simulatorStep === 4 ? "Restart Flow" : "Next Step"}</span>
               <ChevronRight size={14} />
             </button>
           </div>
@@ -980,7 +1041,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
       </section>
 
       {/* =========================================================================
-          9. SEARCHABLE FAQ ACCORDION
+          9. SEARCHABLE FAQ ACCORDION (12 ACCURATE SYSTEM QUESTIONS)
           ========================================================================= */}
       <section
         style={{
@@ -998,56 +1059,139 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
           <h2 style={{ fontSize: "clamp(1.8rem, 4vw, 2.6rem)", fontWeight: 900, color: "var(--text-primary)", marginTop: "0.25rem" }}>
             Everything You Need to Know
           </h2>
+          <p style={{ color: "var(--text-secondary)", maxWidth: "580px", margin: "0.5rem auto 1.5rem auto", fontSize: "0.95rem" }}>
+            Learn how smart contract escrows, resident voting, AI auditing, and legal e-OR receipts work together.
+          </p>
 
-          {/* Search Bar */}
-          <div style={{ position: "relative", maxWidth: "460px", margin: "1.25rem auto 0 auto" }}>
-            <Search size={16} style={{ position: "absolute", left: "1rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+          {/* Search Bar with Clear Button */}
+          <div style={{ position: "relative", maxWidth: "500px", margin: "0 auto 1.25rem auto" }}>
+            <Search size={17} style={{ position: "absolute", left: "1.1rem", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
             <input
               type="text"
               className="form-control"
-              placeholder="Search questions (e.g. escrow, voting, AI)..."
+              placeholder="Search questions (e.g., escrow, quorum, Gemini, receipts)..."
               value={faqSearch}
               onChange={(e) => setFaqSearch(e.target.value)}
-              style={{ paddingLeft: "2.5rem", borderRadius: "9999px", height: "46px" }}
+              style={{
+                paddingLeft: "2.7rem",
+                paddingRight: faqSearch ? "2.5rem" : "1rem",
+                borderRadius: "9999px",
+                height: "48px",
+                fontSize: "0.92rem",
+              }}
             />
+            {faqSearch && (
+              <button
+                onClick={() => setFaqSearch("")}
+                style={{
+                  position: "absolute",
+                  right: "1rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: 0,
+                  display: "flex",
+                }}
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Category Filter Pills */}
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "0.5rem" }}>
+            {faqCategories.map((cat) => (
+              <button
+                key={cat}
+                className={`faq-cat-pill ${selectedCategory === cat ? "active" : ""}`}
+                onClick={() => setSelectedCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-          {filteredFaqs.map((faq, index) => {
-            const isOpen = openFaq === index;
-            return (
-              <div
-                key={faq.q}
-                className="bank-card"
-                style={{
-                  padding: "1.25rem 1.5rem",
-                  cursor: "pointer",
-                  borderRadius: "16px",
-                  transition: "all 0.2s ease",
-                }}
-                onClick={() => setOpenFaq(isOpen ? null : index)}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ fontSize: "1rem", color: "var(--text-primary)" }}>{faq.q}</strong>
-                  <ChevronDown
-                    size={18}
-                    style={{
-                      color: "var(--text-muted)",
-                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                      transition: "transform 0.25s ease",
-                    }}
-                  />
+        {/* FAQ Accordion List */}
+        {filteredFaqs.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            {filteredFaqs.map((faq, index) => {
+              const isOpen = openFaq === index;
+              return (
+                <div
+                  key={faq.q}
+                  className={`faq-accordion-item ${isOpen ? "open" : ""}`}
+                >
+                  <button
+                    className="faq-accordion-header"
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                    aria-expanded={isOpen}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", textAlign: "left", paddingRight: "1rem" }}>
+                      <span
+                        style={{
+                          fontSize: "0.72rem",
+                          fontWeight: 800,
+                          padding: "0.15rem 0.5rem",
+                          borderRadius: "6px",
+                          background: "var(--role-accent-soft)",
+                          color: "var(--role-accent)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {faq.category}
+                      </span>
+                      <strong style={{ fontSize: "0.98rem", color: "var(--text-primary)" }}>{faq.q}</strong>
+                    </div>
+                    <ChevronDown
+                      size={18}
+                      style={{
+                        color: "var(--text-muted)",
+                        transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.25s ease",
+                        flexShrink: 0,
+                      }}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="faq-accordion-body">
+                      {faq.a}
+                    </div>
+                  )}
                 </div>
-                {isOpen && (
-                  <p style={{ margin: "0.85rem 0 0 0", fontSize: "0.88rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                    {faq.a}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            style={{
+              textAlign: "center",
+              padding: "3rem 1.5rem",
+              background: "var(--bg-card)",
+              borderRadius: "20px",
+              border: "1px dashed var(--border-subtle)",
+            }}
+          >
+            <HelpCircle size={36} style={{ color: "var(--text-muted)", marginBottom: "0.75rem" }} />
+            <h4 style={{ margin: "0 0 0.35rem 0", color: "var(--text-primary)", fontSize: "1.1rem" }}>No matching questions found</h4>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", margin: "0 0 1.25rem 0" }}>
+              Try searching with different terms such as "escrow", "voting", "receipts", or "Gemini".
+            </p>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => {
+                setFaqSearch("");
+                setSelectedCategory("All");
+              }}
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
       </section>
 
       {/* =========================================================================
@@ -1081,7 +1225,7 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", fontSize: "0.82rem", color: "var(--text-secondary)", flexWrap: "wrap" }}>
             <a
               href={`https://stellar.expert/explorer/testnet/contract/${STELLAR_CONFIG.contractId}`}
               target="_blank"
@@ -1096,6 +1240,13 @@ export const LandingView: React.FC<LandingPageProps> = ({ setViewState, setIsGue
               style={{ background: "none", border: "none", color: "var(--role-accent)", fontWeight: 700, cursor: "pointer", padding: 0 }}
             >
               Sign In
+            </button>
+            <span>•</span>
+            <button
+              onClick={handleEnterGuest}
+              style={{ background: "none", border: "none", color: "var(--text-secondary)", fontWeight: 700, cursor: "pointer", padding: 0 }}
+            >
+              Public Ledger Feed
             </button>
           </div>
         </div>
